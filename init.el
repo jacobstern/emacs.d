@@ -39,7 +39,7 @@
 
 (use-package helm
   :config
-  (helm-mode 1)
+  (helm-mode t)
   :bind (([f2] . helm-M-x)
 	 ("C-x M-f" . helm-recentf)
 	 ("C-x C-f" . helm-find-files)
@@ -61,6 +61,9 @@
       (message "Could not find project root."))))
 
 (use-package neotree
+  :after (all-the-icons)
+  :config
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
   :bind (([f8] . my-neotree-toggle)))
 
 (use-package projectile
@@ -96,6 +99,29 @@
   :config
   (global-company-mode))
 
+(use-package all-the-icons
+  :ensure t
+  :pin melpa-stable)
+
+(use-package spaceline
+  :ensure t
+  :pin melpa-stable
+  :init
+  (setq powerline-default-separator 'slant)
+  (setq powerline-height 20)
+  :config
+  (spaceline-spacemacs-theme)
+  (spaceline-helm-mode 1))
+
+;; (use-package spaceline-all-the-icons 
+;;   :ensure t
+;;   :pin melpa-stable
+;;   :after (spaceline all-the-icons)
+;;   :init
+;;   (setq spaceline-all-the-icons-slim-render t)
+;;   :config
+;;   (spaceline-all-the-icons-theme))
+ 
 (add-hook 'prog-mode-hook 'display-line-numbers-mode)
 
 (custom-set-variables
@@ -113,7 +139,7 @@
  '(menu-bar-mode nil)
  '(package-selected-packages
    (quote
-    (magit ztree company undo-tree neotree helm-projectile projectile elnode use-package whole-line-or-region helm dracula-theme)))
+    (spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
