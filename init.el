@@ -1,3 +1,5 @@
+
+
 (package-initialize)
 
 (setq package-archives
@@ -17,6 +19,7 @@
     (shell)))
 
 (defun my-shell-clear-next-output (output)
+  "Clear the next output from ComInt and remove this hook."
   (remove-hook 'comint-preoutput-filter-functions 'my-shell-clear-next-output)
   (comint-clear-buffer) output)
 
@@ -42,7 +45,7 @@
   (helm-mode t)
   :bind (([f1] . helm-M-x)
 	 ("M-x" . helm-M-x)
-	 ("C-x M-f" . helm-recentf)
+	 ("C-x f" . helm-recentf)
 	 ("C-x C-f" . helm-find-files)
 	 ("C-x C-b" . helm-buffers-list)
 	 ("C-h a" . helm-apropos)
@@ -77,7 +80,7 @@
 
 (use-package whole-line-or-region
   :config
-  (whole-line-or-region-mode t))
+  (whole-line-or-region-global-mode t))
 
 (use-package uniquify
   :init
@@ -140,6 +143,19 @@
   (spaceline-spacemacs-theme)
   (spaceline-helm-mode 1))
 
+(use-package flycheck
+  :ensure t
+  :pin melpa-stable
+  :config
+  (add-hook 'after-init-hook 'global-flycheck-mode)
+  (setq flycheck-display-errors-function #'flycheck-display-error-messages-unless-error-list))
+
+(use-package intero
+  :after (haskell-mode flycheck)
+  :config
+  (add-hook 'haskell-mode-hook 'intero-mode)
+  (flycheck-add-next-checker 'intero
+                             '(warning . haskell-hlint)))
 ;; (use-package spaceline-all-the-icons 
 ;;   :ensure t
 ;;   :pin melpa-stable
@@ -184,17 +200,28 @@
  '(help-window-select t)
  '(horizontal-scroll-bar-mode nil)
  '(menu-bar-mode nil)
+ '(neo-theme (quote icons))
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
+    (intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
+ '(spaceline-helm-mode t)
  '(tool-bar-mode nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro")))))
+ '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro"))))
+ '(neo-banner-face ((t (:foreground "#ff79c6" :weight bold))))
+ '(neo-dir-link-face ((t (:foreground "#8be9fd"))))
+ '(neo-expand-btn-face ((t (:foreground "#f8f8f2"))))
+ '(neo-file-link-face ((t (:foreground "#f8f8f2"))))
+ '(neo-header-face ((t (:foreground "#f8f8f2"))))
+ '(neo-root-dir-face ((t (:foreground "#ff79c6" :weight bold))))
+ '(powerline-active1 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
+ '(powerline-active2 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
+ '(spaceline-highlight-face ((t (:inherit (quote mode-line) :background "#38d9fc" :foreground "#3E3D31")))))
