@@ -16,13 +16,6 @@
       (quit-window)
     (shell)))
 
-(global-set-key (kbd "M-o") 'mode-line-other-buffer)
-(global-set-key [f1] 'my-shell-toggle)
-
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
-(setq backup-directory-alist
-      `(("." . ,(concat user-emacs-directory "backups"))))
-
 (defun my-shell-clear-next-output (output)
   (remove-hook 'comint-preoutput-filter-functions 'my-shell-clear-next-output)
   (comint-clear-buffer) output)
@@ -35,12 +28,20 @@
 	  (lambda () (add-hook 'comint-input-filter-functions
 			       'my-shell-clear-listener nil t)))
 
+(global-set-key (kbd "M-o") 'mode-line-other-buffer)
+(global-set-key [f2] 'my-shell-toggle)
+
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+(setq backup-directory-alist
+      `(("." . ,(concat user-emacs-directory "backups"))))
+
 (use-package helm-config)
 
 (use-package helm
   :config
   (helm-mode t)
-  :bind (([f2] . helm-M-x)
+  :bind (([f1] . helm-M-x)
+	 ("M-x" . helm-M-x)
 	 ("C-x M-f" . helm-recentf)
 	 ("C-x C-f" . helm-find-files)
 	 ("C-x C-b" . helm-buffers-list)
@@ -95,8 +96,33 @@
   :config
   (global-undo-tree-mode))
 
+(defun my-company-shifted-return ()
+  "Abort the current company completion and create a new line."
+  (interactive)
+  (company-abort)
+  ;; This is probably evil but it seems to do a good job executing
+  ;; the current binding for return key
+  (setq unread-command-events (listify-key-sequence "\r")))
+
 (use-package company
   :config
+  (define-key company-active-map [tab] 'company-complete-common-or-cycle)
+  (define-key company-active-map (kbd "TAB") 'company-complete-common-or-cycle)
+  (define-key company-active-map [S-return] 'my-company-shifted-return)
+  (define-key company-active-map (kbd "<S-return>") 'my-company-shifted-return)
+  (add-hook 'comint-mode-hook
+	    (lambda ()
+	      (setq-local company-active-map
+			  (let ((keymap (make-sparse-keymap)))
+			    (set-keymap-parent keymap company-active-map)
+			    (define-key keymap [tab] 'company-complete-selection)
+			    (define-key keymap (kbd "TAB") 'company-complete-selection)
+			    (define-key keymap [return] 'my-company-shifted-return)
+			    (define-key keymap (kbd "RET") 'my-company-shifted-return) keymap))))
+  (add-hook 'shell-mode-hook
+	    (lambda ()
+	      (define-key shell-mode-map [tab] 'company-complete)
+	      (define-key shell-mode-map (kbd "TAB") 'company-complete)))
   (global-company-mode))
 
 (use-package all-the-icons
@@ -107,7 +133,8 @@
   :ensure t
   :pin melpa-stable
   :init
-  (setq powerline-default-separator 'slant)
+  (setq powerline-default-separator 'wave)
+  (setq powerline-image-apple-rgb t)	; Fix colors on macOS
   (setq powerline-height 20)
   :config
   (spaceline-spacemacs-theme)
@@ -121,7 +148,27 @@
 ;;   (setq spaceline-all-the-icons-slim-render t)
 ;;   :config
 ;;   (spaceline-all-the-icons-theme))
- 
+
+(use-package org
+  :init
+  (setq org-log-done t)
+  :bind (("C-c l" . org-store-link)
+	 ("C-c a" . org-agenda)))
+
+(use-package winum
+  :init
+  (setq winum-auto-setup-mode-line nil)
+  :config
+  (winum-mode))
+
+(use-package bash-completion
+  :config
+  (autoload 'bash-completion-dynamic-complete
+    "bash-completion"
+    "BASH completion hook")
+  (add-hook 'shell-dynamic-complete-functions
+	    'bash-completion-dynamic-complete))
+
 (add-hook 'prog-mode-hook 'display-line-numbers-mode)
 
 (custom-set-variables
@@ -137,9 +184,10 @@
  '(help-window-select t)
  '(horizontal-scroll-bar-mode nil)
  '(menu-bar-mode nil)
+ '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
+    (bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
