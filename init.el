@@ -1,5 +1,3 @@
-
-
 (package-initialize)
 
 (setq package-archives
@@ -34,6 +32,7 @@
 (global-set-key (kbd "M-o") 'mode-line-other-buffer)
 (global-set-key [f2] 'my-shell-toggle)
 
+(add-hook 'prog-mode-hook 'display-line-numbers-mode)
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (setq backup-directory-alist
       `(("." . ,(concat user-emacs-directory "backups"))))
@@ -93,7 +92,8 @@
   :pin melpa-stable
   :after (projectile)
   :config
-  (helm-projectile-on))
+  (helm-projectile-on)
+  (define-key projectile-mode-map (kbd "M-p") 'helm-projectile-find-file))
 
 (use-package undo-tree
   :config
@@ -109,8 +109,6 @@
 
 (use-package company
   :config
-  (define-key company-active-map [tab] 'company-complete-common-or-cycle)
-  (define-key company-active-map (kbd "TAB") 'company-complete-common-or-cycle)
   (define-key company-active-map [S-return] 'my-company-shifted-return)
   (define-key company-active-map (kbd "<S-return>") 'my-company-shifted-return)
   (add-hook 'comint-mode-hook
@@ -185,7 +183,18 @@
   (add-hook 'shell-dynamic-complete-functions
 	    'bash-completion-dynamic-complete))
 
-(add-hook 'prog-mode-hook 'display-line-numbers-mode)
+;; (use-package dashboard
+;;   :ensure t
+;;   :after (projectile)
+;;   :init
+;;   (setq dashboard-startup-banner 'logo)
+;;   (setq dashboard-banner-logo-title nil)
+;;   (setq dashboard-items '((recents  . 5)
+;; 			  (projects . 5)))
+;;   :config
+;;   (dashboard-setup-startup-hook))
+  
+;; (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*")))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -201,10 +210,12 @@
  '(horizontal-scroll-bar-mode nil)
  '(menu-bar-mode nil)
  '(neo-theme (quote icons))
+ '(ns-alternate-modifier (quote control))
+ '(ns-control-modifier (quote meta))
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
+    (dashboard intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
@@ -216,6 +227,8 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro"))))
+ '(dashboard-banner-logo-title-face ((t (:inherit default :foreground "#ff79c6" :weight bold))))
+ '(dashboard-heading-face ((t (:inherit org-level-2))))
  '(neo-banner-face ((t (:foreground "#ff79c6" :weight bold))))
  '(neo-dir-link-face ((t (:foreground "#8be9fd"))))
  '(neo-expand-btn-face ((t (:foreground "#f8f8f2"))))
@@ -224,4 +237,9 @@
  '(neo-root-dir-face ((t (:foreground "#ff79c6" :weight bold))))
  '(powerline-active1 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
  '(powerline-active2 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
- '(spaceline-highlight-face ((t (:inherit (quote mode-line) :background "#38d9fc" :foreground "#3E3D31")))))
+ '(spaceline-highlight-face ((t (:foreground "#3E3D31" :background "#38d9fc" :inherit (quote mode-line))))))
+
+     ;; Local Variables:
+     ;; eval: (flycheck-mode -1)
+     ;; End:
+
