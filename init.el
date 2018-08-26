@@ -46,21 +46,14 @@
 (setq backup-directory-alist
       `(("." . ,(concat user-emacs-directory "backups"))))
 
-(use-package helm
+(use-package ivy
   :ensure t
   :pin melpa
-  :after shell
-  :init
-  (setq helm-mode-no-completion-in-region-in-modes '(shell-mode))
   :config
-  (helm-mode t)
-  :bind (([f1] . helm-M-x)
-	 ("M-x" . helm-M-x)
-	 ("C-x f" . helm-recentf)
-	 ("C-x C-f" . helm-find-files)
-	 ("C-x C-b" . helm-buffers-list)
-	 ("C-h a" . helm-apropos)
-	 ("M-i" . helm-imenu)))
+  (ivy-mode 1)
+  (counsel-mode 1)
+  :bind
+  ("C-c r" . counsel-recentf))
 
 (defun my-neotree-toggle ()
   "Toggle NeoTree at the project root."
@@ -99,13 +92,6 @@
   (setq uniquify-after-kill-buffer-p t)
   (setq uniquify-ignore-buffers-re "^\\*"))
 
-(use-package helm-projectile
-  :ensure t
-  :pin melpa
-  :after (projectile)
-  :config
-  (helm-projectile-on))
-
 (use-package undo-tree
   :config
   (global-undo-tree-mode))
@@ -129,8 +115,7 @@
   (setq powerline-image-apple-rgb t)	; Fix colors on macOS
   (setq powerline-height 20)
   :config
-  (spaceline-spacemacs-theme)
-  (spaceline-helm-mode 1))
+  (spaceline-spacemacs-theme))
 
 (use-package flycheck
   :ensure t
@@ -180,8 +165,8 @@
 	org-gcal-client-secret my-gcal-client-secret
 	org-gcal-file-alist (list `(,my-gcal-email  . "~/org/gcal.org"))))
 
-(add-hook 'org-agenda-mode-hook (lambda () (org-gcal-sync nil nil t)))
-(add-hook 'org-capture-after-finalize-hook (lambda () (org-gcal-sync nil nil t)))
+(add-hook 'org-agenda-mode-hook 'org-gcal-fetch)
+(add-hook 'org-capture-after-finalize-hook 'org-gcal-fetch)
 (setq inhibit-startup-message t)
 (setq initial-buffer-choice
       (lambda ()
@@ -209,11 +194,15 @@
 (use-package evil-collection
   :ensure t
   :pin melpa
-  :after (evil helm)
+  :after (evil ivy)
   :init
   (setq evil-collection-setup-minibuffer t)
   :config
-  (evil-collection-init))
+  (evil-collection-init)
+  (evil-collection-define-key 'insert 'evil-ex-completion-map (kbd "<escape>") 'abort-recursive-edit) ; Prevent normal mode in minibuffer
+  (evil-collection-define-key 'insert 'ivy-minibuffer-map
+    (kbd "M-j") 'ivy-next-line
+    (kbd "M-k") 'ivy-previous-line))
 
 (use-package evil-org
   :ensure t
@@ -277,11 +266,10 @@
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (ivy hl-todo highlight-todo evil-easymotion smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
+    (ivy hl-todo highlight-todo evil-easymotion smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
- '(spaceline-helm-mode t)
  '(tool-bar-mode nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
