@@ -44,3 +44,9 @@ python-*-docs-html
 /recentf
 places
 backups/
+.tutor/
+emojis/
+org-gcal/
+
+# Secrets file!
+secret.el

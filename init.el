@@ -9,6 +9,8 @@
 (eval-when-compile
   (require 'use-package))
 
+(load (expand-file-name "secret" user-emacs-directory))
+
 (defun my-shell-toggle ()
   "Open shell, or quit the window if it's already selected."
   (interactive)
@@ -28,18 +30,28 @@
 (add-hook 'shell-mode-hook
 	  (lambda () (add-hook 'comint-input-filter-functions
 			       'my-shell-clear-listener nil t)))
+(require 'shell)
+(define-key shell-mode-map (kbd "TAB") 'company-complete)
+(setq comint-prompt-read-only t)
 
-(global-set-key (kbd "M-o") 'mode-line-other-buffer)
+;; (global-set-key (kbd "M-o") 'mode-line-other-buffer)
 (global-set-key [f2] 'my-shell-toggle)
+(menu-bar-mode -1)
+;; (setq message-truncate-lines t)
+
+(setq ring-bell-function 'ignore)
 
 (add-hook 'prog-mode-hook 'display-line-numbers-mode)
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (setq backup-directory-alist
       `(("." . ,(concat user-emacs-directory "backups"))))
 
-(use-package helm-config)
-
 (use-package helm
+  :ensure t
+  :pin melpa
+  :after shell
+  :init
+  (setq helm-mode-no-completion-in-region-in-modes '(shell-mode))
   :config
   (helm-mode t)
   :bind (([f1] . helm-M-x)
@@ -71,7 +83,7 @@
 
 (use-package projectile
   :ensure t
-  :pin melpa-stable
+  :pin melpa
   :config
   (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
   (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
@@ -89,41 +101,20 @@
 
 (use-package helm-projectile
   :ensure t
-  :pin melpa-stable
+  :pin melpa
   :after (projectile)
   :config
-  (helm-projectile-on)
-  (define-key projectile-mode-map (kbd "M-p") 'helm-projectile-find-file))
+  (helm-projectile-on))
 
 (use-package undo-tree
   :config
   (global-undo-tree-mode))
 
-(defun my-company-shifted-return ()
-  "Abort the current company completion and create a new line."
-  (interactive)
-  (company-abort)
-  ;; This is probably evil but it seems to do a good job executing
-  ;; the current binding for return key
-  (setq unread-command-events (listify-key-sequence "\r")))
-
 (use-package company
+  :init
+  (setq company-minimum-prefix-length 3)
+  (setq company-abort-manual-when-too-short t)
   :config
-  (define-key company-active-map [S-return] 'my-company-shifted-return)
-  (define-key company-active-map (kbd "<S-return>") 'my-company-shifted-return)
-  (add-hook 'comint-mode-hook
-	    (lambda ()
-	      (setq-local company-active-map
-			  (let ((keymap (make-sparse-keymap)))
-			    (set-keymap-parent keymap company-active-map)
-			    (define-key keymap [tab] 'company-complete-selection)
-			    (define-key keymap (kbd "TAB") 'company-complete-selection)
-			    (define-key keymap [return] 'my-company-shifted-return)
-			    (define-key keymap (kbd "RET") 'my-company-shifted-return) keymap))))
-  (add-hook 'shell-mode-hook
-	    (lambda ()
-	      (define-key shell-mode-map [tab] 'company-complete)
-	      (define-key shell-mode-map (kbd "TAB") 'company-complete)))
   (global-company-mode))
 
 (use-package all-the-icons
@@ -183,18 +174,93 @@
   (add-hook 'shell-dynamic-complete-functions
 	    'bash-completion-dynamic-complete))
 
-;; (use-package dashboard
-;;   :ensure t
-;;   :after (projectile)
-;;   :init
-;;   (setq dashboard-startup-banner 'logo)
-;;   (setq dashboard-banner-logo-title nil)
-;;   (setq dashboard-items '((recents  . 5)
-;; 			  (projects . 5)))
-;;   :config
-;;   (dashboard-setup-startup-hook))
-  
-;; (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*")))
+(use-package org-gcal
+  :init
+  (setq org-gcal-client-id my-gcal-client-id
+	org-gcal-client-secret my-gcal-client-secret
+	org-gcal-file-alist (list `(,my-gcal-email  . "~/org/gcal.org"))))
+
+(add-hook 'org-agenda-mode-hook (lambda () (org-gcal-sync nil nil t)))
+(add-hook 'org-capture-after-finalize-hook (lambda () (org-gcal-sync nil nil t)))
+(setq inhibit-startup-message t)
+(setq initial-buffer-choice
+      (lambda ()
+	(org-agenda-list)
+	(let ((agenda-buffer (get-buffer "*Org Agenda*")))
+	  (let ((agenda-window (get-buffer-window agenda-buffer)))
+	    (delete-other-windows agenda-window)
+	    agenda-buffer))))
+
+(setq org-agenda-files (list "~/org/gcal.org" "~/org/planner.org"))
+
+(use-package emojify
+  :ensure t
+  :config
+  (add-hook 'after-init-hook #'global-emojify-mode))
+
+(use-package evil
+  :ensure t
+  :pin melpa
+  :init
+  (setq evil-want-integration nil)
+  :config
+  (evil-mode 1))
+
+(use-package evil-collection
+  :ensure t
+  :pin melpa
+  :after (evil helm)
+  :init
+  (setq evil-collection-setup-minibuffer t)
+  :config
+  (evil-collection-init))
+
+(use-package evil-org
+  :ensure t
+  :pin melpa
+  :after org
+  :config
+  (add-hook 'org-mode-hook 'evil-org-mode)
+  (add-hook 'evil-org-mode-hook
+            (lambda ()
+              (evil-org-set-key-theme
+	       '(textobjects insert navigation additional shift todo heading))))
+  (require 'evil-org-agenda)
+  (evil-org-agenda-set-keys))
+
+(use-package restart-emacs
+  :ensure t
+  :pin melpa)
+
+(use-package smartparens
+  :ensure t
+  :pin melpa
+  :init
+  (setq sp-show-pair-delay 0.2
+        sp-show-pair-from-inside t
+        sp-cancel-autoskip-on-backward-movement nil
+        sp-highlight-pair-overlay nil
+        sp-highlight-wrap-overlay nil
+        sp-highlight-wrap-tag-overlay nil)
+  :config
+  (require 'smartparens-config)
+  (smartparens-global-mode +1)
+  (show-smartparens-global-mode +1))
+
+
+(use-package evil-easymotion
+  ;; TODO: customize avy-*face$
+  ;; TODO: bind this to ,,
+  ;; TODO: bind C-j to insert newline below
+  :ensure t
+  :pin melpa)
+
+(use-package hl-todo
+  ;; TODO: Consider key bindings for navigation
+  :ensure t
+  :pin melpa
+  :config
+  (global-hl-todo-mode +1))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -206,16 +272,12 @@
  '(custom-safe-themes
    (quote
     ("aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
- '(help-window-select t)
  '(horizontal-scroll-bar-mode nil)
- '(menu-bar-mode nil)
  '(neo-theme (quote icons))
- '(ns-alternate-modifier (quote control))
- '(ns-control-modifier (quote meta))
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (dashboard intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
+    (ivy hl-todo highlight-todo evil-easymotion smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree helm-projectile projectile use-package whole-line-or-region helm dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
