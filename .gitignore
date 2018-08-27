@@ -47,6 +47,7 @@ backups/
 .tutor/
 emojis/
 org-gcal/
+smex-items
 
 # Secrets file!
 secret.el

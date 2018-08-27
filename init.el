@@ -2,35 +2,52 @@
 
 (setq package-archives
       '(("gnu" . "http://elpa.gnu.org/packages/")
-	("melpa-stable" . "https://stable.melpa.org/packages/")
-	("melpa" . "http://melpa.org/packages/")
-	("marmalade" . "http://marmalade-repo.org/packages/")))
+  ("melpa-stable" . "https://stable.melpa.org/packages/")
+  ("melpa" . "http://melpa.org/packages/")
+  ("marmalade" . "http://marmalade-repo.org/packages/")))
 
 (eval-when-compile (require 'use-package))
 
 (load (expand-file-name "secret" user-emacs-directory))
 
+(require 'general)
+
+(general-create-definer my-leader-def
+  :states '(normal visual motion insert emacs)
+  :keymaps 'override
+  :prefix ","
+  :non-normal-prefix "C-c")
+
 (setq ring-bell-function 'ignore)
 (setq backup-directory-alist
       `(("." . ,(concat user-emacs-directory "backups"))))
 (setq confirm-kill-processes nil)
+(setq indent-tabs-mode nil)
 
 (add-hook 'prog-mode-hook 'display-line-numbers-mode)
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (menu-bar-mode -1)
 
-(defmacro my-init-mode-indent (spaces)
+(defmacro my-init-mode-indent (variable &rest extras-to-set)
   "Create a function that initializes a mode with a certain
 indentation size."
-	`(lambda ()
-		 (setq tab-width ,spaces)
-		 (setq evil-shift-width ,spaces)))
+  (let ((base-statements `((setq evil-shift-width ,variable)
+                           (setq tab-width ,variable))))
+        (let ((statements (if extras-to-set
+                              (append base-statements
+                                      (mapcar (lambda (extra)
+                                                `(setq ,extra ,variable))
+                                              extras-to-set))
+                            base-statements)))
+          `(lambda () ,@statements))))
 
 (defmacro my-add-word-syntax-entry (entry)
-	`(lambda ()
-		 (modify-syntax-entry ,entry "w")))
+  `(lambda ()
+     (modify-syntax-entry ,entry "w")))
 
-(add-hook 'emacs-lisp-mode-hook (my-init-mode-indent 2))
+(setq my-preferred-elisp-indent 2)
+
+(add-hook 'emacs-lisp-mode-hook (my-init-mode-indent my-preferred-elisp-indent))
 ;; Emulate Vim word units
 (add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?-))
 (add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?_))
@@ -57,11 +74,11 @@ indentation size."
                                 'my-shell-clear-listener nil t))))
 
 (use-package exec-path-from-shell
-	:ensure t
-	:pin melpa
-	:config
-	(when (memq window-system '(mac ns x))
-		(exec-path-from-shell-initialize)))
+  :ensure t
+  :pin melpa
+  :config
+  (when (memq window-system '(mac ns x))
+    (exec-path-from-shell-initialize)))
 
 (use-package smex
   :ensure t
@@ -72,30 +89,30 @@ indentation size."
 (use-package ivy
   :ensure t
   :pin melpa
-	:after smex
+  :after smex
   :init
   (setq ivy-use-virtual-buffers t)
   :config
-	(ivy-mode 1))
+  (ivy-mode 1))
 
 (use-package counsel
-	:ensure t
-	:pin melpa
-	:after ivy
-	:config
-	(counsel-mode 1))
+  :ensure t
+  :pin melpa
+  :after ivy
+  :config
+  (counsel-mode 1))
 
 (defun my-neotree-toggle ()
   "Toggle NeoTree at the project root."
-	(interactive)
-	(let ((default-dir default-directory)
-				(project-dir (condition-case nil (projectile-project-root) (error nil)))
-				(file-name (buffer-file-name)))
-		(neotree-toggle)
-		(if (neo-global--window-exists-p)
-				(progn
-					(neotree-dir (or project-dir default-dir))
-					(neotree-find file-name)))))
+  (interactive)
+  (let ((default-dir default-directory)
+        (project-dir (condition-case nil (projectile-project-root) (error nil)))
+        (file-name (buffer-file-name)))
+    (neotree-toggle)
+    (if (neo-global--window-exists-p)
+        (progn
+          (neotree-dir (or project-dir default-dir))
+          (neotree-find file-name)))))
 
 (use-package neotree
   :after (all-the-icons)
@@ -131,9 +148,7 @@ indentation size."
   (setq company-minimum-prefix-length 3)
   (setq company-abort-manual-when-too-short t)
   :config
-	(global-company-mode 1)
-	(add-hook 'prog-mode-hook
-						(lambda () (company-tng-configure-default))))
+  (global-company-mode 1))
 
 (use-package all-the-icons
   :ensure t
@@ -144,7 +159,7 @@ indentation size."
   :pin melpa-stable
   :init
   (setq powerline-default-separator 'wave)
-  (setq powerline-image-apple-rgb t)	; Fix colors on macOS
+  (setq powerline-image-apple-rgb t)  ; Fix colors on macOS
   (setq powerline-height 20)
   :config
   (spaceline-spacemacs-theme))
@@ -164,7 +179,7 @@ indentation size."
                              '(warning . haskell-hlint)))
 
 (defun my-org-gcal-fetch-silently ()
-		(org-gcal-sync nil t t))
+    (org-gcal-sync nil t t))
 
 (use-package org
   :init
@@ -180,25 +195,25 @@ indentation size."
   (winum-mode))
 
 (use-package bash-completion
-	:ensure t
-	:pin melpa
-	:config
-	(bash-completion-setup))
+  :ensure t
+  :pin melpa
+  :config
+  (bash-completion-setup))
 
 (use-package org-gcal
   :init
   (setq org-gcal-client-id my-gcal-client-id
-	org-gcal-client-secret my-gcal-client-secret
-	org-gcal-file-alist (list `(,my-gcal-email  . "~/org/gcal.org"))))
+  org-gcal-client-secret my-gcal-client-secret
+  org-gcal-file-alist (list `(,my-gcal-email  . "~/org/gcal.org"))))
 
 (setq inhibit-startup-message t)
 (setq initial-buffer-choice
       (lambda ()
-	(org-agenda-list)
-	(let ((agenda-buffer (get-buffer "*Org Agenda*")))
-	  (let ((agenda-window (get-buffer-window agenda-buffer)))
-	    (delete-other-windows agenda-window)
-	    agenda-buffer))))
+  (org-agenda-list)
+  (let ((agenda-buffer (get-buffer "*Org Agenda*")))
+    (let ((agenda-window (get-buffer-window agenda-buffer)))
+      (delete-other-windows agenda-window)
+      agenda-buffer))))
 
 (use-package emojify
   :ensure t
@@ -213,15 +228,15 @@ indentation size."
   (setq evil-want-integration nil)
   :config
   (evil-mode 1)
-	(evil-ex-define-cmd "sh[ell]" 'shell))
+  (evil-ex-define-cmd "sh[ell]" 'shell))
 
 (use-package evil-collection
   :ensure t
   :pin melpa
-  :after (evil ivy)
+  :after (evil ivy avy)
   :init
   (setq evil-collection-setup-minibuffer t)
-	(setq evil-collection-company-use-tng nil)
+  (setq evil-collection-company-use-tng nil)
   :config
   (evil-collection-init)
   ; Prevent normal mode in minibuffer
@@ -238,7 +253,7 @@ indentation size."
   (add-hook 'evil-org-mode-hook
             (lambda ()
               (evil-org-set-key-theme
-	       '(textobjects insert navigation additional shift todo heading))))
+         '(textobjects insert navigation additional shift todo heading))))
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys))
 
@@ -261,80 +276,110 @@ indentation size."
   (smartparens-global-mode +1)
   (show-smartparens-global-mode +1))
 
-
-(use-package evil-easymotion
-  ;; TODO: customize avy-*face$
-  :ensure t
-  :pin melpa)
-
 (use-package hl-todo
   :ensure t
   :pin melpa
   :config
   (global-hl-todo-mode +1))
 
-(use-package evil-nerd-commenter
-	:after evil
-	:ensure t
-	:pin melpa)
-
 (use-package counsel-projectile
-	:after counsel
-	:ensure t
-	:pin melpa
-	:config
-	(counsel-projectile-mode +1))
+  :after counsel
+  :ensure t
+  :pin melpa
+  :config
+  (counsel-projectile-mode +1))
 
 (use-package wgrep
-	:ensure t
-	:pin melpa)
+  :ensure t
+  :pin melpa)
 
 (use-package ag
-	:ensure t
-	:pin melpa)
+  :ensure t
+  :pin melpa)
+
+(use-package avy
+  :ensure t
+  :pin melpa
+  :config
+  (avy-setup-default))
 
 (use-package general
-	:ensure t
-	:pin melpa
-	:after (projectile evil-easymotion)
-	:config
-	(general-create-definer my-leader-def
-		:states '(normal visual motion insert emacs)
-		:keymaps 'override
-		:prefix ","
-		:non-normal-prefix "C-c")
-	(my-leader-def "TAB" 'mode-line-other-buffer)
-	(my-leader-def "f" 'counsel-find-file)
-	(my-leader-def "a" 'org-agenda)
-	(my-leader-def "x" 'counsel-M-x)
-	(my-leader-def "/" 'swiper)
-	(my-leader-def "`" 'shell)
-	(my-leader-def "t" 'my-neotree-toggle)
-	(my-leader-def "s" 'counsel-ag)
-	(my-leader-def "b" 'ivy-switch-buffer)
-	(my-leader-def "n" 'rename-buffer)
-	(my-leader-def "k" 'kill-this-buffer)
-	(my-leader-def "i" 'counsel-imenu)
-	(my-leader-def "r" 'counsel-recentf)
-	(my-leader-def "h a" 'counsel-apropos)
-	(my-leader-def "h v" 'counsel-describe-variable)
-	(my-leader-def "h f" 'counsel-describe-function)
-	(my-leader-def "h l" 'counsel-find-library)
-	(my-leader-def "h k" 'describe-key)
-	(my-leader-def "c i" 'evilnc-comment-or-uncomment-lines)
-	(my-leader-def "c l" 'evilnc-comment-or-uncomment-to-the-line)
-	(my-leader-def "c c" 'evilnc-copy-and-comment-lines)
-	(my-leader-def "c p" 'evilnc-comment-or-uncomment-paragraphs)
-	(my-leader-def "c r" 'comment-or-uncomment-region)
-	(my-leader-def "c v" 'evilnc-toggle-invert-comment-line-by-line)
-	(my-leader-def "p f" 'counsel-projectile-find-file)
-	(my-leader-def "p d" 'counsel-projectile-find-dir)
-	(my-leader-def "p p" 'counsel-projectile-switch-project)
-	(my-leader-def "p `" 'projectile-run-shell)
-	(my-leader-def "p b" 'counsel-projectile-switch-to-buffer)
-	(my-leader-def "p s" 'counsel-projectile-ag)
-	(my-leader-def "p ," 'counsel-projectile)
-	(my-leader-def "j" evilem-map))
+  :ensure t
+  :pin melpa
+  :after (projectile avy)
+  :config
+  (my-leader-def "TAB" 'mode-line-other-buffer)
+  (my-leader-def "a" 'org-agenda)
+  (my-leader-def "l" 'org-store-link)
+  (my-leader-def "x" 'counsel-M-x)
+  (my-leader-def "/" 'swiper)
+  (my-leader-def ":" 'eval-expression)
+  (my-leader-def "t" 'my-neotree-toggle)
+  (my-leader-def "s" 'counsel-ag)
+  (my-leader-def "b" 'ivy-switch-buffer)
+  (my-leader-def "n" 'rename-buffer)
+  (my-leader-def "i" 'counsel-imenu)
+  (my-leader-def "o" 'counsel-projectile-switch-project)
+  (my-leader-def "p" 'counsel-projectile)
+  (my-leader-def "f" 'counsel-find-file)
+  (my-leader-def "c" 'counsel-recentf)
+  (my-leader-def "j w" 'avy-goto-word-1)
+  (my-leader-def "j c" 'avy-goto-char-1)
+  (my-leader-def "j t" 'avy-goto-char-timer)
+  (my-leader-def "j g" 'avy-goto-line))
+
+(use-package add-node-modules-path
+  :ensure t
+  :pin melpa)
+
+(setq my-preferred-web-mode-indent 2)
+
+(use-package web-mode
+  :ensure t
+  :pin melpa
+  :after add-node-modules-path
+  :config
+  (add-hook 'web-mode-hook
+            (my-init-mode-indent my-preferred-web-mode-indent
+                                 web-mode-markup-indent-offset
+                                 web-mode-code-indent-offset
+                                 web-mode-css-indent-offset))
+  (add-hook 'javascript-mode-hook
+            (my-init-mode-indent my-preferred-web-mode-indent
+                                 web-mode-code-indent-offset))
+  (add-hook 'css-mode-hook
+            (my-init-mode-indent my-preferred-web-mode-indent
+                                 web-mode-css-indent-offset))
+  (add-hook 'web-mode-hook #'add-node-modules-path)
+  (add-hook 'javascript-mode-hook #'add-node-modules-path)
+  (add-hook 'css-mode-hook #'add-node-modules-path))
+
+(setq my-preferred-ts-indent 2)
+
+(defun my-setup-tide-mode ()
+  (interactive)
+  (tide-setup)
+  (flycheck-mode +1)
+  (setq flycheck-check-syntax-automatically '(save mode-enabled))
+  (eldoc-mode +1)
+  (tide-hl-identifier-mode +1)
+  (company-mode +1))
+
+(use-package tide
+  :ensure t
+  :pin melpa
+  :after web-mode
+  :config
+  (add-hook 'typescript-mode-hook #'add-node-modules-path)
+  (add-hook 'typescript-mode-hook #'my-setup-tide-mode)
+  (add-hook 'typescript-mode-hook (my-init-mode-indent my-preferred-ts-indent
+                                                       typescript-indent-level))
+  (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
+  (flycheck-add-mode 'typescript-tslint 'web-mode)
+  (add-hook 'web-mode-hook
+            (lambda ()
+              (when (string-equal "tsx" (file-name-extension buffer-file-name))
+                (my-setup-tide-mode)))))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -344,19 +389,22 @@ indentation size."
  '(column-number-mode t)
  '(custom-enabled-themes (quote (dracula)))
  '(custom-safe-themes
-	 (quote
-		("aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
+   (quote
+    ("aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
  '(horizontal-scroll-bar-mode nil)
  '(neo-theme (quote icons))
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
-	 (quote
-		(ag wgrep counsel-projectile evil-nerd-commenter exec-path-from-shell counsel smex ivy hl-todo highlight-todo evil-easymotion smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+   (quote
+    (tide web-mode add-node-modules-path ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
  '(spaceline-helm-mode t)
- '(tool-bar-mode nil))
+ '(tool-bar-mode nil)
+ '(whitespace-style
+   (quote
+    (face trailing tabs lines empty indentation::tab indentation::space indentation space-after-tab space-before-tab space-mark tab-mark newline-mark))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
