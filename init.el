@@ -6,17 +6,38 @@
 	("melpa" . "http://melpa.org/packages/")
 	("marmalade" . "http://marmalade-repo.org/packages/")))
 
-(eval-when-compile
-  (require 'use-package))
+(eval-when-compile (require 'use-package))
 
 (load (expand-file-name "secret" user-emacs-directory))
 
-(defun my-shell-toggle ()
-  "Open shell, or quit the window if it's already selected."
-  (interactive)
-  (if (string-equal (buffer-name) "*shell*")
-      (quit-window)
-    (shell)))
+(setq ring-bell-function 'ignore)
+(setq backup-directory-alist
+      `(("." . ,(concat user-emacs-directory "backups"))))
+(setq confirm-kill-processes nil)
+
+(add-hook 'prog-mode-hook 'display-line-numbers-mode)
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+(menu-bar-mode -1)
+
+(defmacro my-init-mode-indent (spaces)
+  "Create a function that initializes a mode with a certain
+indentation size."
+	`(lambda ()
+		 (setq tab-width ,spaces)
+		 (setq evil-shift-width ,spaces)))
+
+(defmacro my-add-word-syntax-entry (entry)
+	`(lambda ()
+		 (modify-syntax-entry ,entry "w")))
+
+(add-hook 'emacs-lisp-mode-hook (my-init-mode-indent 2))
+;; Emulate Vim word units
+(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?-))
+(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?_))
+(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?/))
+(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?*))
+
+(setq my-shell-clear-regex "clear\\|cls")
 
 (defun my-shell-clear-next-output (output)
   "Clear the next output from ComInt and remove this hook."
@@ -24,62 +45,71 @@
   (comint-clear-buffer) output)
 
 (defun my-shell-clear-listener (input)
-  (when (string-equal (string-trim input) "clear")
+  (when (string-match-p my-shell-clear-regex (string-trim input))
     (add-hook 'comint-preoutput-filter-functions 'my-shell-clear-next-output)))
 
-(add-hook 'shell-mode-hook
-	  (lambda () (add-hook 'comint-input-filter-functions
-			       'my-shell-clear-listener nil t)))
-(require 'shell)
-(define-key shell-mode-map (kbd "TAB") 'company-complete)
-(setq comint-prompt-read-only t)
+(use-package shell
+  :init
+  (setq comint-prompt-read-only t)
+  :config
+  (add-hook 'shell-mode-hook
+           (lambda () (add-hook 'comint-input-filter-functions
+                                'my-shell-clear-listener nil t))))
 
-;; (global-set-key (kbd "M-o") 'mode-line-other-buffer)
-(global-set-key [f2] 'my-shell-toggle)
-(menu-bar-mode -1)
-;; (setq message-truncate-lines t)
+(use-package exec-path-from-shell
+	:ensure t
+	:pin melpa
+	:config
+	(when (memq window-system '(mac ns x))
+		(exec-path-from-shell-initialize)))
 
-(setq ring-bell-function 'ignore)
-
-(add-hook 'prog-mode-hook 'display-line-numbers-mode)
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
-(setq backup-directory-alist
-      `(("." . ,(concat user-emacs-directory "backups"))))
+(use-package smex
+  :ensure t
+  :pin melpa
+  :config
+  (smex-initialize))
 
 (use-package ivy
   :ensure t
   :pin melpa
+	:after smex
+  :init
+  (setq ivy-use-virtual-buffers t)
   :config
-  (ivy-mode 1)
-  (counsel-mode 1)
-  :bind
-  ("C-c r" . counsel-recentf))
+	(ivy-mode 1))
+
+(use-package counsel
+	:ensure t
+	:pin melpa
+	:after ivy
+	:config
+	(counsel-mode 1))
 
 (defun my-neotree-toggle ()
   "Toggle NeoTree at the project root."
-  (interactive)
-  (let ((project-dir (projectile-project-root))
-	(file-name (buffer-file-name)))
-    (neotree-toggle)
-    (if project-dir
-	(if (neo-global--window-exists-p)
-	    (progn
-	      (neotree-dir project-dir)
-	      (neotree-find file-name)))
-      (message "Could not find project root."))))
+	(interactive)
+	(let ((default-dir default-directory)
+				(project-dir (condition-case nil (projectile-project-root) (error nil)))
+				(file-name (buffer-file-name)))
+		(neotree-toggle)
+		(if (neo-global--window-exists-p)
+				(progn
+					(neotree-dir (or project-dir default-dir))
+					(neotree-find file-name)))))
 
 (use-package neotree
   :after (all-the-icons)
   :config
-  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
-  :bind (([f8] . my-neotree-toggle)))
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow)))
 
 (use-package projectile
   :ensure t
   :pin melpa
+  :after ivy
+  :init
+  (setq projectile-completion-system 'ivy)
   :config
   (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
-  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
   (projectile-mode 1))
 
 (use-package whole-line-or-region
@@ -101,7 +131,9 @@
   (setq company-minimum-prefix-length 3)
   (setq company-abort-manual-when-too-short t)
   :config
-  (global-company-mode))
+	(global-company-mode 1)
+	(add-hook 'prog-mode-hook
+						(lambda () (company-tng-configure-default))))
 
 (use-package all-the-icons
   :ensure t
@@ -130,20 +162,16 @@
   (add-hook 'haskell-mode-hook 'intero-mode)
   (flycheck-add-next-checker 'intero
                              '(warning . haskell-hlint)))
-;; (use-package spaceline-all-the-icons 
-;;   :ensure t
-;;   :pin melpa-stable
-;;   :after (spaceline all-the-icons)
-;;   :init
-;;   (setq spaceline-all-the-icons-slim-render t)
-;;   :config
-;;   (spaceline-all-the-icons-theme))
+
+(defun my-org-gcal-fetch-silently ()
+		(org-gcal-sync nil t t))
 
 (use-package org
   :init
   (setq org-log-done t)
-  :bind (("C-c l" . org-store-link)
-	 ("C-c a" . org-agenda)))
+  (setq org-agenda-files (list "~/org/gcal.org" "~/org/planner.org"))
+  :config
+  (add-hook 'org-agenda-mode-hook 'my-org-gcal-fetch-silently))
 
 (use-package winum
   :init
@@ -152,12 +180,10 @@
   (winum-mode))
 
 (use-package bash-completion
-  :config
-  (autoload 'bash-completion-dynamic-complete
-    "bash-completion"
-    "BASH completion hook")
-  (add-hook 'shell-dynamic-complete-functions
-	    'bash-completion-dynamic-complete))
+	:ensure t
+	:pin melpa
+	:config
+	(bash-completion-setup))
 
 (use-package org-gcal
   :init
@@ -165,8 +191,6 @@
 	org-gcal-client-secret my-gcal-client-secret
 	org-gcal-file-alist (list `(,my-gcal-email  . "~/org/gcal.org"))))
 
-(add-hook 'org-agenda-mode-hook 'org-gcal-fetch)
-(add-hook 'org-capture-after-finalize-hook 'org-gcal-fetch)
 (setq inhibit-startup-message t)
 (setq initial-buffer-choice
       (lambda ()
@@ -175,8 +199,6 @@
 	  (let ((agenda-window (get-buffer-window agenda-buffer)))
 	    (delete-other-windows agenda-window)
 	    agenda-buffer))))
-
-(setq org-agenda-files (list "~/org/gcal.org" "~/org/planner.org"))
 
 (use-package emojify
   :ensure t
@@ -187,9 +209,11 @@
   :ensure t
   :pin melpa
   :init
+  (setq evil-want-C-u-scroll t)
   (setq evil-want-integration nil)
   :config
-  (evil-mode 1))
+  (evil-mode 1)
+	(evil-ex-define-cmd "sh[ell]" 'shell))
 
 (use-package evil-collection
   :ensure t
@@ -197,12 +221,13 @@
   :after (evil ivy)
   :init
   (setq evil-collection-setup-minibuffer t)
+	(setq evil-collection-company-use-tng nil)
   :config
   (evil-collection-init)
-  (evil-collection-define-key 'insert 'evil-ex-completion-map (kbd "<escape>") 'abort-recursive-edit) ; Prevent normal mode in minibuffer
-  (evil-collection-define-key 'insert 'ivy-minibuffer-map
-    (kbd "M-j") 'ivy-next-line
-    (kbd "M-k") 'ivy-previous-line))
+  ; Prevent normal mode in minibuffer
+  (dolist (map (cons 'ivy-minibuffer-map evil-collection-minibuffer-maps))
+    (evil-collection-define-key 'insert map
+      (kbd "<escape>") 'abort-recursive-edit)))
 
 (use-package evil-org
   :ensure t
@@ -239,17 +264,77 @@
 
 (use-package evil-easymotion
   ;; TODO: customize avy-*face$
-  ;; TODO: bind this to ,,
-  ;; TODO: bind C-j to insert newline below
   :ensure t
   :pin melpa)
 
 (use-package hl-todo
-  ;; TODO: Consider key bindings for navigation
   :ensure t
   :pin melpa
   :config
   (global-hl-todo-mode +1))
+
+(use-package evil-nerd-commenter
+	:after evil
+	:ensure t
+	:pin melpa)
+
+(use-package counsel-projectile
+	:after counsel
+	:ensure t
+	:pin melpa
+	:config
+	(counsel-projectile-mode +1))
+
+(use-package wgrep
+	:ensure t
+	:pin melpa)
+
+(use-package ag
+	:ensure t
+	:pin melpa)
+
+(use-package general
+	:ensure t
+	:pin melpa
+	:after (projectile evil-easymotion)
+	:config
+	(general-create-definer my-leader-def
+		:states '(normal visual motion insert emacs)
+		:keymaps 'override
+		:prefix ","
+		:non-normal-prefix "C-c")
+	(my-leader-def "TAB" 'mode-line-other-buffer)
+	(my-leader-def "f" 'counsel-find-file)
+	(my-leader-def "a" 'org-agenda)
+	(my-leader-def "x" 'counsel-M-x)
+	(my-leader-def "/" 'swiper)
+	(my-leader-def "`" 'shell)
+	(my-leader-def "t" 'my-neotree-toggle)
+	(my-leader-def "s" 'counsel-ag)
+	(my-leader-def "b" 'ivy-switch-buffer)
+	(my-leader-def "n" 'rename-buffer)
+	(my-leader-def "k" 'kill-this-buffer)
+	(my-leader-def "i" 'counsel-imenu)
+	(my-leader-def "r" 'counsel-recentf)
+	(my-leader-def "h a" 'counsel-apropos)
+	(my-leader-def "h v" 'counsel-describe-variable)
+	(my-leader-def "h f" 'counsel-describe-function)
+	(my-leader-def "h l" 'counsel-find-library)
+	(my-leader-def "h k" 'describe-key)
+	(my-leader-def "c i" 'evilnc-comment-or-uncomment-lines)
+	(my-leader-def "c l" 'evilnc-comment-or-uncomment-to-the-line)
+	(my-leader-def "c c" 'evilnc-copy-and-comment-lines)
+	(my-leader-def "c p" 'evilnc-comment-or-uncomment-paragraphs)
+	(my-leader-def "c r" 'comment-or-uncomment-region)
+	(my-leader-def "c v" 'evilnc-toggle-invert-comment-line-by-line)
+	(my-leader-def "p f" 'counsel-projectile-find-file)
+	(my-leader-def "p d" 'counsel-projectile-find-dir)
+	(my-leader-def "p p" 'counsel-projectile-switch-project)
+	(my-leader-def "p `" 'projectile-run-shell)
+	(my-leader-def "p b" 'counsel-projectile-switch-to-buffer)
+	(my-leader-def "p s" 'counsel-projectile-ag)
+	(my-leader-def "p ," 'counsel-projectile)
+	(my-leader-def "j" evilem-map))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -259,17 +344,18 @@
  '(column-number-mode t)
  '(custom-enabled-themes (quote (dracula)))
  '(custom-safe-themes
-   (quote
-    ("aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
+	 (quote
+		("aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
  '(horizontal-scroll-bar-mode nil)
  '(neo-theme (quote icons))
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
-   (quote
-    (ivy hl-todo highlight-todo evil-easymotion smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum spaceline-all-the-icons all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+	 (quote
+		(ag wgrep counsel-projectile evil-nerd-commenter exec-path-from-shell counsel smex ivy hl-todo highlight-todo evil-easymotion smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
+ '(spaceline-helm-mode t)
  '(tool-bar-mode nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -289,7 +375,6 @@
  '(powerline-active2 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
  '(spaceline-highlight-face ((t (:foreground "#3E3D31" :background "#38d9fc" :inherit (quote mode-line))))))
 
-     ;; Local Variables:
-     ;; eval: (flycheck-mode -1)
-     ;; End:
-
+;; Local Variables:
+;; eval: (flycheck-mode -1)
+;; End:
