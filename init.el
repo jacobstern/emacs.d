@@ -12,23 +12,28 @@
 
 (require 'general)
 
-(general-create-definer my-leader-def
-  :states '(normal visual motion insert emacs)
+(general-evil-setup)
+
+(general-create-definer rockstar-define-leader
   :keymaps 'override
-  :prefix ","
-  :non-normal-prefix "C-c")
+  :prefix "C-c")
+
+(general-mmap "," (general-simulate-key "C-c"))
+(general-imap "<f5>" (general-simulate-key "C-c"))
+(general-mmap "<f5>" (general-simulate-key "C-c"))
 
 (setq ring-bell-function 'ignore)
 (setq backup-directory-alist
       `(("." . ,(concat user-emacs-directory "backups"))))
 (setq confirm-kill-processes nil)
 (setq indent-tabs-mode nil)
+(setq enable-recursive-minibuffers t)
 
 (add-hook 'prog-mode-hook 'display-line-numbers-mode)
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (menu-bar-mode -1)
 
-(defmacro my-init-mode-indent (variable &rest extras-to-set)
+(defmacro rockstar-init-mode-indent (variable &rest extras-to-set)
   "Create a function that initializes a mode with a certain
 indentation size."
   (let ((base-statements `((setq evil-shift-width ,variable)
@@ -41,29 +46,29 @@ indentation size."
                             base-statements)))
           `(lambda () ,@statements))))
 
-(defmacro my-add-word-syntax-entry (entry)
+(defmacro rockstar-add-word-syntax-entry (entry)
   `(lambda ()
      (modify-syntax-entry ,entry "w")))
 
-(setq my-preferred-elisp-indent 2)
+(setq rockstar-preferred-elisp-indent 2)
 
-(add-hook 'emacs-lisp-mode-hook (my-init-mode-indent my-preferred-elisp-indent))
+(add-hook 'emacs-lisp-mode-hook (rockstar-init-mode-indent rockstar-preferred-elisp-indent))
 ;; Emulate Vim word units
-(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?-))
-(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?_))
-(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?/))
-(add-hook 'emacs-lisp-mode-hook (my-add-word-syntax-entry ?*))
+(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?-))
+(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?_))
+(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?/))
+(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?*))
 
-(setq my-shell-clear-regex "clear\\|cls")
+(setq rockstar-shell-clear-regex "clear\\|cls")
 
-(defun my-shell-clear-next-output (output)
+(defun rockstar-shell-clear-next-output (output)
   "Clear the next output from ComInt and remove this hook."
-  (remove-hook 'comint-preoutput-filter-functions 'my-shell-clear-next-output)
+  (remove-hook 'comint-preoutput-filter-functions 'rockstar-shell-clear-next-output)
   (comint-clear-buffer) output)
 
-(defun my-shell-clear-listener (input)
-  (when (string-match-p my-shell-clear-regex (string-trim input))
-    (add-hook 'comint-preoutput-filter-functions 'my-shell-clear-next-output)))
+(defun rockstar-shell-clear-listener (input)
+  (when (string-match-p rockstar-shell-clear-regex (string-trim input))
+    (add-hook 'comint-preoutput-filter-functions 'rockstar-shell-clear-next-output)))
 
 (use-package shell
   :init
@@ -71,13 +76,13 @@ indentation size."
   :config
   (add-hook 'shell-mode-hook
            (lambda () (add-hook 'comint-input-filter-functions
-                                'my-shell-clear-listener nil t))))
+                                'rockstar-shell-clear-listener nil t))))
 
-(use-package exec-path-from-shell
-  :ensure t
-  :pin melpa
-  :config
-  (when (memq window-system '(mac ns x))
+(when (memq window-system '(mac ns x))
+  (use-package exec-path-from-shell
+    :ensure t
+    :pin melpa
+    :config
     (exec-path-from-shell-initialize)))
 
 (use-package smex
@@ -89,7 +94,7 @@ indentation size."
 (use-package ivy
   :ensure t
   :pin melpa
-  :after smex
+  :after (smex hydra)
   :init
   (setq ivy-use-virtual-buffers t)
   :config
@@ -102,8 +107,9 @@ indentation size."
   :config
   (counsel-mode 1))
 
-(defun my-neotree-toggle ()
-  "Toggle NeoTree at the project root."
+(defun rockstar-neotree-toggle ()
+  "Toggle NeoTree at the project root if it exists, or the default
+directory."
   (interactive)
   (let ((default-dir default-directory)
         (project-dir (condition-case nil (projectile-project-root) (error nil)))
@@ -178,7 +184,7 @@ indentation size."
   (flycheck-add-next-checker 'intero
                              '(warning . haskell-hlint)))
 
-(defun my-org-gcal-fetch-silently ()
+(defun rockstar-org-gcal-fetch-silently ()
     (org-gcal-sync nil t t))
 
 (use-package org
@@ -186,7 +192,7 @@ indentation size."
   (setq org-log-done t)
   (setq org-agenda-files (list "~/org/gcal.org" "~/org/planner.org"))
   :config
-  (add-hook 'org-agenda-mode-hook 'my-org-gcal-fetch-silently))
+  (add-hook 'org-agenda-mode-hook 'rockstar-org-gcal-fetch-silently))
 
 (use-package winum
   :init
@@ -230,10 +236,16 @@ indentation size."
   (evil-mode 1)
   (evil-ex-define-cmd "sh[ell]" 'shell))
 
+(use-package evil-commentary
+  :ensure t
+  :pin melpa
+  :config
+  (evil-commentary-mode +1))
+
 (use-package evil-collection
   :ensure t
   :pin melpa
-  :after (evil ivy avy)
+  :after (evil ivy ivy-hydra counsel avy)
   :init
   (setq evil-collection-setup-minibuffer t)
   (setq evil-collection-company-use-tng nil)
@@ -276,6 +288,15 @@ indentation size."
   (smartparens-global-mode +1)
   (show-smartparens-global-mode +1))
 
+(use-package hydra
+  :ensure t
+  :pin melpa)
+
+(use-package ivy-hydra
+	:after hydra
+  :ensure t
+  :pin melpa)
+
 (use-package hl-todo
   :ensure t
   :pin melpa
@@ -303,36 +324,56 @@ indentation size."
   :config
   (avy-setup-default))
 
+;; Reserved:
+;; t - tag
+;; r - refac
+;; . - auto-fix
+;; g - mode specific navigation ?
+;; c - commit ?
+;; h - special mode / hydra
+;; i - info
+;; u - occur
+;; e - edit ?
 (use-package general
   :ensure t
   :pin melpa
   :after (projectile avy)
   :config
-  (my-leader-def "TAB" 'mode-line-other-buffer)
-  (my-leader-def "a" 'org-agenda)
-  (my-leader-def "l" 'org-store-link)
-  (my-leader-def "x" 'counsel-M-x)
-  (my-leader-def "/" 'swiper)
-  (my-leader-def ":" 'eval-expression)
-  (my-leader-def "t" 'my-neotree-toggle)
-  (my-leader-def "s" 'counsel-ag)
-  (my-leader-def "b" 'ivy-switch-buffer)
-  (my-leader-def "n" 'rename-buffer)
-  (my-leader-def "i" 'counsel-imenu)
-  (my-leader-def "o" 'counsel-projectile-switch-project)
-  (my-leader-def "p" 'counsel-projectile)
-  (my-leader-def "f" 'counsel-find-file)
-  (my-leader-def "c" 'counsel-recentf)
-  (my-leader-def "j w" 'avy-goto-word-1)
-  (my-leader-def "j c" 'avy-goto-char-1)
-  (my-leader-def "j t" 'avy-goto-char-timer)
-  (my-leader-def "j g" 'avy-goto-line))
+  (rockstar-define-leader "TAB" 'mode-line-other-buffer)
+  (rockstar-define-leader "x" 'counsel-M-x)
+  (rockstar-define-leader "/" 'swiper)
+  (rockstar-define-leader ":" 'eval-expression)
+  (rockstar-define-leader "t" 'rockstar-neotree-toggle)
+  (rockstar-define-leader "s" 'counsel-ag)
+  (rockstar-define-leader "b" 'ivy-switch-buffer)
+  (rockstar-define-leader "d" 'dired)
+  (rockstar-define-leader "n" 'rename-buffer)
+  (rockstar-define-leader "m" 'counsel-imenu)
+  (rockstar-define-leader "p" 'counsel-projectile)
+  (rockstar-define-leader "w" 'counsel-projectile-switch-project) ; "Work on"
+  (rockstar-define-leader "f" 'counsel-find-file)
+  (rockstar-define-leader "l" 'counsel-recentf) ; "Listing"
+  (rockstar-define-leader "a" 'org-agenda)
+  (rockstar-define-leader "j" 'avy-goto-char-timer))
 
 (use-package add-node-modules-path
   :ensure t
   :pin melpa)
 
-(setq my-preferred-web-mode-indent 2)
+(use-package anzu
+  :ensure t
+  :pin melpa
+  :init
+  (setq anzu-cons-mode-line-p nil)
+  :config
+  (global-anzu-mode +1))
+
+(use-package evil-anzu
+  :ensure t
+  :after (evil anzu)
+  :pin melpa)
+
+(setq rockstar-preferred-web-mode-indent 2)
 
 (use-package web-mode
   :ensure t
@@ -340,23 +381,26 @@ indentation size."
   :after add-node-modules-path
   :config
   (add-hook 'web-mode-hook
-            (my-init-mode-indent my-preferred-web-mode-indent
-                                 web-mode-markup-indent-offset
-                                 web-mode-code-indent-offset
-                                 web-mode-css-indent-offset))
+            (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
+                                       web-mode-markup-indent-offset
+                                       web-mode-code-indent-offset
+                                       web-mode-css-indent-offset))
   (add-hook 'javascript-mode-hook
-            (my-init-mode-indent my-preferred-web-mode-indent
-                                 web-mode-code-indent-offset))
+            (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
+                                       web-mode-code-indent-offset))
+  (add-hook 'js-jsx-mode-hook
+            (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
+                                       js-indent-level))
   (add-hook 'css-mode-hook
-            (my-init-mode-indent my-preferred-web-mode-indent
-                                 web-mode-css-indent-offset))
+            (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
+                                       web-mode-css-indent-offset))
   (add-hook 'web-mode-hook #'add-node-modules-path)
   (add-hook 'javascript-mode-hook #'add-node-modules-path)
   (add-hook 'css-mode-hook #'add-node-modules-path))
 
-(setq my-preferred-ts-indent 2)
+(setq rockstar-preferred-ts-indent 2)
 
-(defun my-setup-tide-mode ()
+(defun rockstar-setup-tide-mode ()
   (interactive)
   (tide-setup)
   (flycheck-mode +1)
@@ -371,15 +415,15 @@ indentation size."
   :after web-mode
   :config
   (add-hook 'typescript-mode-hook #'add-node-modules-path)
-  (add-hook 'typescript-mode-hook #'my-setup-tide-mode)
-  (add-hook 'typescript-mode-hook (my-init-mode-indent my-preferred-ts-indent
-                                                       typescript-indent-level))
+  (add-hook 'typescript-mode-hook #'rockstar-setup-tide-mode)
+  (add-hook 'typescript-mode-hook (rockstar-init-mode-indent rockstar-preferred-ts-indent
+                                                             typescript-indent-level))
   (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
   (flycheck-add-mode 'typescript-tslint 'web-mode)
   (add-hook 'web-mode-hook
             (lambda ()
               (when (string-equal "tsx" (file-name-extension buffer-file-name))
-                (my-setup-tide-mode)))))
+                (rockstar-setup-tide-mode)))))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -396,7 +440,7 @@ indentation size."
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (tide web-mode add-node-modules-path ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode add-node-modules-path ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
@@ -411,6 +455,7 @@ indentation size."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro"))))
+ '(anzu-mode-line ((t (:inherit default-face))))
  '(dashboard-banner-logo-title-face ((t (:inherit default :foreground "#ff79c6" :weight bold))))
  '(dashboard-heading-face ((t (:inherit org-level-2))))
  '(neo-banner-face ((t (:foreground "#ff79c6" :weight bold))))
