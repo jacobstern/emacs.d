@@ -16,18 +16,42 @@
 
 (general-create-definer rockstar-define-leader
   :keymaps 'override
-  :prefix "C-c")
+  :prefix "C-c SPC")
 
-(general-mmap "," (general-simulate-key "C-c"))
-(general-imap "<f5>" (general-simulate-key "C-c"))
-(general-mmap "<f5>" (general-simulate-key "C-c"))
+(defun rockstar-whole-line-or-region-indent (prefix)
+  "Indent region or PREFIX whole lines."
+  (interactive "*p")
+  (whole-line-or-region-call-with-region 'indent-region prefix))
+
+(general-define-key "C-s" 'isearch-forward-regexp)
+(general-define-key "C-r" 'isearch-backward-regexp)
+(general-define-key "C-M-s" 'isearch-forward)
+(general-define-key "C-M-r" 'isearch-backward)
+(general-define-key "M-%" 'query-replace-regexp)
+(general-define-key "C-M-%" 'query-replace)
+(general-define-key "C-<return>" 'newline) ;; Easier to jam the control key
+
+(autoload 'zap-up-to-char "misc"
+  "Kill up to, but not including ARGth occurrence of CHAR."
+  t)
+
+(general-define-key "M-z" 'zap-up-to-char)
 
 (setq ring-bell-function 'ignore)
-(setq backup-directory-alist
-      `(("." . ,(concat user-emacs-directory "backups"))))
-(setq confirm-kill-processes nil)
-(setq indent-tabs-mode nil)
+(setq backup-directory-alist `(("." . ,(concat user-emacs-directory "backups"))))
 (setq enable-recursive-minibuffers t)
+(setq confirm-kill-processes nil)
+
+(fset 'yes-or-no-p 'y-or-n-p)
+(global-auto-revert-mode t)
+
+(setq-default indent-tabs-mode nil)
+(setq-default fill-column 80)
+
+(setq ediff-window-setup-function 'ediff-setup-windows-plain)
+
+(setq ns-control-modifier 'meta)
+(setq ns-option-modifier 'control)
 
 (add-hook 'prog-mode-hook 'display-line-numbers-mode)
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
@@ -54,10 +78,10 @@ indentation size."
 
 (add-hook 'emacs-lisp-mode-hook (rockstar-init-mode-indent rockstar-preferred-elisp-indent))
 ;; Emulate Vim word units
-(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?-))
-(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?_))
-(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?/))
-(add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?*))
+;; (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?-))
+;; (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?_))
+;; (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?/))
+;; (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?*))
 
 (setq rockstar-shell-clear-regex "clear\\|cls")
 
@@ -100,12 +124,20 @@ indentation size."
   :config
   (ivy-mode 1))
 
+(use-package mwim
+  :ensure t
+  :pin melpa
+  :config
+  (general-define-key "C-a" 'mwim-beginning-of-code-or-line)
+  (general-define-key "C-e" 'mwim-end-of-code-or-line))
+
 (use-package counsel
   :ensure t
   :pin melpa
   :after ivy
   :config
-  (counsel-mode 1))
+  (counsel-mode 1)
+  (general-define-key "C-c r" 'counsel-recentf))
 
 (defun rockstar-neotree-toggle ()
   "Toggle NeoTree at the project root if it exists, or the default
@@ -137,7 +169,8 @@ directory."
 
 (use-package whole-line-or-region
   :config
-  (whole-line-or-region-global-mode t))
+  (whole-line-or-region-global-mode t)
+  (general-define-key "C-M-\\" 'rockstar-whole-line-or-region-indent))
 
 (use-package uniquify
   :init
@@ -164,11 +197,14 @@ directory."
   :ensure t
   :pin melpa-stable
   :init
-  (setq powerline-default-separator 'wave)
+  (setq spaceline-window-numbers-unicode t)
   (setq powerline-image-apple-rgb t)  ; Fix colors on macOS
   (setq powerline-height 20)
+  (setq powerline-default-separator 'wave)
+  (setq spaceline-highlight-face-func 'spaceline-highlight-face-evil-state)
   :config
-  (spaceline-spacemacs-theme))
+  (spaceline-spacemacs-theme)
+  (spaceline-toggle-workspace-number-off))
 
 (use-package flycheck
   :ensure t
@@ -198,7 +234,18 @@ directory."
   :init
   (setq winum-auto-setup-mode-line nil)
   :config
-  (winum-mode))
+  (winum-mode)
+  ;; (general-define-key :keymaps 'evil-window-map "0" 'winum-select-window-0)
+  ;; (general-define-key :keymaps 'evil-window-map "1" 'winum-select-window-1)
+  ;; (general-define-key :keymaps 'evil-window-map "2" 'winum-select-window-2)
+  ;; (general-define-key :keymaps 'evil-window-map "3" 'winum-select-window-3)
+  ;; (general-define-key :keymaps 'evil-window-map "4" 'winum-select-window-4)
+  ;; (general-define-key :keymaps 'evil-window-map "5" 'winum-select-window-5)
+  ;; (general-define-key :keymaps 'evil-window-map "6" 'winum-select-window-6)
+  ;; (general-define-key :keymaps 'evil-window-map "7" 'winum-select-window-7)
+  ;; (general-define-key :keymaps 'evil-window-map "8" 'winum-select-window-8)
+  ;; (general-define-key :keymaps 'evil-window-map "9" 'winum-select-window-9))
+  )
 
 (use-package bash-completion
   :ensure t
@@ -215,59 +262,70 @@ directory."
 (setq inhibit-startup-message t)
 (setq initial-buffer-choice
       (lambda ()
-  (org-agenda-list)
-  (let ((agenda-buffer (get-buffer "*Org Agenda*")))
-    (let ((agenda-window (get-buffer-window agenda-buffer)))
-      (delete-other-windows agenda-window)
-      agenda-buffer))))
+        (org-agenda-list)
+        (let ((agenda-buffer (get-buffer "*Org Agenda*")))
+          (let ((agenda-window (get-buffer-window agenda-buffer)))
+            (delete-other-windows agenda-window)
+            agenda-buffer))))
 
 (use-package emojify
   :ensure t
   :config
   (add-hook 'after-init-hook #'global-emojify-mode))
 
-(use-package evil
-  :ensure t
-  :pin melpa
-  :init
-  (setq evil-want-C-u-scroll t)
-  (setq evil-want-integration nil)
-  :config
-  (evil-mode 1)
-  (evil-ex-define-cmd "sh[ell]" 'shell))
+;; (use-package evil
+;;   :ensure t
+;;   :pin melpa
+;;   :init
+;;   (setq evil-want-C-u-scroll t)
+;;   (setq evil-want-integration nil)
+;;   (setq evil-normal-state-cursor '(box "#B8779C"))
+;;   (setq evil-insert-state-cursor '(box "#87C396"))
+;;   (setq evil-emacs-state-cursor '(box "#77ACB8"))
+;;   :config
+;;   (evil-mode 1)
+;;   (evil-set-initial-state 'special-mode 'emacs)
+;;   (evil-set-initial-state 'magit-popup-mode 'emacs)
+;;   (evil-ex-define-cmd "sh[ell]" 'shell)
+;;   (general-emap "C-w" 'evil-window-map)
+;;   ;; Note that this forbids us from using Emacs mode to edit text
+;;   (general-emap ":" 'evil-ex)
+;;   (general-emap "<escape>" 'keyboard-quit))
 
-(use-package evil-commentary
-  :ensure t
-  :pin melpa
-  :config
-  (evil-commentary-mode +1))
+;; (use-package evil-commentary
+;;   :ensure t
+;;   :pin melpa
+;;   :config
+;;   (evil-commentary-mode +1))
 
-(use-package evil-collection
+(use-package magit
   :ensure t
-  :pin melpa
-  :after (evil ivy ivy-hydra counsel avy)
-  :init
-  (setq evil-collection-setup-minibuffer t)
-  (setq evil-collection-company-use-tng nil)
   :config
-  (evil-collection-init)
-  ; Prevent normal mode in minibuffer
-  (dolist (map (cons 'ivy-minibuffer-map evil-collection-minibuffer-maps))
-    (evil-collection-define-key 'insert map
-      (kbd "<escape>") 'abort-recursive-edit)))
+  (general-define-key "C-c m" 'magit))
 
-(use-package evil-org
+(use-package yaml-mode
   :ensure t
   :pin melpa
-  :after org
   :config
-  (add-hook 'org-mode-hook 'evil-org-mode)
-  (add-hook 'evil-org-mode-hook
-            (lambda ()
-              (evil-org-set-key-theme
-         '(textobjects insert navigation additional shift todo heading))))
-  (require 'evil-org-agenda)
-  (evil-org-agenda-set-keys))
+  (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
+  (add-hook 'yaml-mode-hook 'display-line-numbers-mode)
+  (add-hook 'yaml-mode-hook (rockstar-init-mode-indent 2))
+  (add-hook 'yaml-mode-hook
+            '(lambda ()
+               (define-key yaml-mode-map "\C-m" 'newline-and-indent))))
+
+;; (use-package evil-org
+;;   :ensure t
+;;   :pin melpa
+;;   :after org
+;;   :config
+;;   (add-hook 'org-mode-hook 'evil-org-mode)
+;;   (add-hook 'evil-org-mode-hook
+;;             (lambda ()
+;;               (evil-org-set-key-theme)))
+;;   (general-nmap :keymaps 'evil-org-mode-map "go" 'org-open-at-point)
+;;   (general-nmap :keymaps 'evil-org-mode-map "M-o" 'evil-org-org-insert-heading-below)
+;;   (general-nmap :keymaps 'evil-org-mode-map "O" nil))
 
 (use-package restart-emacs
   :ensure t
@@ -293,9 +351,13 @@ directory."
   :pin melpa)
 
 (use-package ivy-hydra
-	:after hydra
+  :after hydra
   :ensure t
-  :pin melpa)
+  :pin melpa
+  :config
+  (rockstar-define-leader :keymaps 'ivy-minibuffer-map "SPC" 'hydra-ivy/body)
+  (rockstar-define-leader :keymaps 'ivy-minibuffer-map "j" 'ivy-avy)
+  (rockstar-define-leader :keymaps 'ivy-minibuffer-map "u" 'ivy-occur))
 
 (use-package hl-todo
   :ensure t
@@ -322,7 +384,17 @@ directory."
   :ensure t
   :pin melpa
   :config
-  (avy-setup-default))
+  (global-set-key (kbd "C-'") 'avy-goto-char-2)
+  (global-set-key (kbd "M-g '") 'avy-goto-line)
+  (avy-setup-default)
+  (global-set-key (kbd "C-c C-j") 'avy-resume))
+
+(use-package eyebrowse
+  ;; :after evil
+  :ensure t
+  :pin melpa
+  :config
+  (eyebrowse-mode t))
 
 ;; Reserved:
 ;; t - tag
@@ -352,13 +424,15 @@ directory."
   (rockstar-define-leader "p" 'counsel-projectile)
   (rockstar-define-leader "w" 'counsel-projectile-switch-project) ; "Work on"
   (rockstar-define-leader "f" 'counsel-find-file)
-  (rockstar-define-leader "l" 'counsel-recentf) ; "Listing"
-  (rockstar-define-leader "a" 'org-agenda)
-  (rockstar-define-leader "j" 'avy-goto-char-timer))
+  (rockstar-define-leader "r" 'counsel-recentf)
+  (rockstar-define-leader "j" 'avy-goto-char-timer)
+  (rockstar-define-leader "a a" 'org-agenda))
 
-(use-package add-node-modules-path
+(use-package docker
   :ensure t
-  :pin melpa)
+  :pin melpa
+  :config
+  (general-define-key "C-c d" 'docker))
 
 (use-package anzu
   :ensure t
@@ -368,10 +442,14 @@ directory."
   :config
   (global-anzu-mode +1))
 
-(use-package evil-anzu
+(use-package add-node-modules-path
   :ensure t
-  :after (evil anzu)
   :pin melpa)
+
+;; (use-package evil-anzu
+;;   :ensure t
+;;   :after (evil anzu)
+;;   :pin melpa)
 
 (setq rockstar-preferred-web-mode-indent 2)
 
@@ -412,7 +490,9 @@ directory."
 (use-package tide
   :ensure t
   :pin melpa
-  :after web-mode
+  :after (web-mode company-mode)
+  :init
+  (setq tide-tsserver-executable "node_modules/typescript/bin/tsserver")
   :config
   (add-hook 'typescript-mode-hook #'add-node-modules-path)
   (add-hook 'typescript-mode-hook #'rockstar-setup-tide-mode)
@@ -440,7 +520,7 @@ directory."
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode add-node-modules-path ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode add-node-modules-path ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
@@ -466,7 +546,12 @@ directory."
  '(neo-root-dir-face ((t (:foreground "#ff79c6" :weight bold))))
  '(powerline-active1 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
  '(powerline-active2 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
- '(spaceline-highlight-face ((t (:foreground "#3E3D31" :background "#38d9fc" :inherit (quote mode-line))))))
+ '(spaceline-evil-emacs ((t (:background "#6DDDF5" :foreground "#44475B" :inherit (quote mode-line)))))
+ '(spaceline-evil-insert ((t (:background "#4EEE77" :foreground "#44475B" :inherit (quote mode-line)))))
+ '(spaceline-evil-normal ((t (:weight normal :background "#ED68B5" :foreground "#44475B" :inherit (quote mode-line)))))
+ '(spaceline-evil-replace ((t (:background "#ff79c6" :foreground "#3E3D31" :inherit (quote mode-line)))))
+ '(spaceline-evil-visual ((t (:background "#B5B7C6" :foreground "#44475b" :inherit (quote mode-line)))))
+ '(spaceline-highlight-face ((t (:background "#70CCE0" :foreground "#44475B" :inherit (quote mode-line))))))
 
 ;; Local Variables:
 ;; eval: (flycheck-mode -1)
