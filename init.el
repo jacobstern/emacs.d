@@ -8,6 +8,8 @@
 
 (eval-when-compile (require 'use-package))
 
+(require 'diminish)
+
 (load (expand-file-name "secret" user-emacs-directory))
 
 (require 'general)
@@ -63,7 +65,8 @@
   "Create a function that initializes a mode with a certain
 indentation size."
   (let ((base-statements `((setq evil-shift-width ,variable)
-                           (setq tab-width ,variable))))
+                           (setq tab-width ,variable)
+                           (setq standard-indent ,variable))))
         (let ((statements (if extras-to-set
                               (append base-statements
                                       (mapcar (lambda (extra)
@@ -138,13 +141,23 @@ indentation size."
   :ensure t
   :pin melpa
   :after (smex hydra)
+  :diminish ivy-mode
   :init
   (setq ivy-use-virtual-buffers t)
   (setq ivy-initial-inputs-alist nil)
   :config
   (ivy-mode 1)
   (general-define-key "C-c s" 'swiper)
-  (general-nmap "C-/" 'swiper))
+  (general-nmap "C-/" 'swiper)
+  (general-define-key :keymaps 'ivy-minibuffer-map "<escape>" 'abort-recursive-edit)
+  (general-define-key :keymaps 'ivy-minibuffer-map "C-j" 'ivy-next-line)
+  (general-define-key :keymaps 'ivy-minibuffer-map "C-k" 'ivy-previous-line)
+  (general-define-key :keymaps 'ivy-minibuffer-map "M-j" 'ivy-next-history-element)
+  (general-define-key :keymaps 'ivy-minibuffer-map "M-k" 'ivy-previous-history-element)
+  (general-define-key :keymaps 'ivy-minibuffer-map "C-d" 'ivy-alt-done)
+  (general-define-key :keymaps 'ivy-minibuffer-map "C-M-d" 'ivy-immediate-done)
+  (general-define-key "<f5>" 'ivy-push-view)
+  (general-define-key "<f6>" 'ivy-pop-view))
 
 (use-package mwim
   :ensure t
@@ -157,6 +170,7 @@ indentation size."
   :ensure t
   :pin melpa
   :after ivy
+  :diminish counsel-mode
   :config
   (counsel-mode 1)
   (general-define-key "C-c r" 'counsel-recentf))
@@ -192,10 +206,10 @@ directory."
                       'projectile-command-map)
   (projectile-mode 1))
 
-(use-package whole-line-or-region
-  :config
-  (whole-line-or-region-global-mode t)
-  (general-define-key "C-M-\\" 'rockstar-whole-line-or-region-indent))
+;; (use-package whole-line-or-region
+;;   :config
+;;   (whole-line-or-region-global-mode t)
+;;   (general-define-key "C-M-\\" 'rockstar-whole-line-or-region-indent))
 
 (use-package uniquify
   :init
@@ -204,6 +218,7 @@ directory."
   (setq uniquify-ignore-buffers-re "^\\*"))
 
 (use-package undo-tree
+  :diminish undo-tree-mode
   :config
   (global-undo-tree-mode))
 
@@ -211,12 +226,11 @@ directory."
   "Abort the current company completion and create a new line."
   (interactive)
   (company-abort)
-  ;; This is probably evil but it seems to do a good job executing
-  ;; the current binding for return key
-  (setq unread-command-events (listify-key-sequence "\r")))
+  (funcall-interactively (local-key-binding (kbd "<return>"))))
 
 
 (use-package company
+  :diminish company-mode
   :config
   (global-company-mode 1)
   (general-imap "TAB" 'company-indent-or-complete-common)
@@ -270,7 +284,8 @@ directory."
   (setq org-log-done t)
   (setq org-agenda-files (list "~/org/gcal.org" "~/org/planner.org"))
   :config
-  (add-hook 'org-agenda-mode-hook 'rockstar-org-gcal-fetch-silently))
+  (add-hook 'org-agenda-mode-hook #'rockstar-org-gcal-fetch-silently)
+  (general-define-key :keymaps 'org-mode-map "<return>" #'org-meta-return))
 
 (use-package winum
   :ensure t
@@ -304,18 +319,24 @@ directory."
   org-gcal-file-alist (list `(,my-gcal-email  . "~/org/gcal.org"))))
 
 (setq inhibit-startup-message t)
-(setq initial-buffer-choice
-      (lambda ()
-        (org-agenda-list)
-        (let ((agenda-buffer (get-buffer "*Org Agenda*")))
-          (let ((agenda-window (get-buffer-window agenda-buffer)))
-            (delete-other-windows agenda-window)
-            agenda-buffer))))
+;; (setq initial-buffer-choice
+;;       (lambda ()
+;;         (org-agenda-list)
+;;         (let ((agenda-buffer (get-buffer "*Org Agenda*")))
+;;           (let ((agenda-window (get-buffer-window agenda-buffer)))
+;;             (delete-other-windows agenda-window)
+;;             agenda-buffer))))
+
+(use-package atomic-chrome
+  :ensure t
+  :pin melpa
+  :config
+  (atomic-chrome-start-server))
 
 (use-package emojify
   :ensure t
   :config
-  (add-hook 'after-init-hook #'global-emojify-mode))
+  (add-hook 'org-agenda-mode-hook #'emojify-mode))
 
 (use-package evil
   :ensure t
@@ -323,9 +344,14 @@ directory."
   :init
   (setq evil-want-C-u-scroll t)
   (setq evil-want-integration nil)
+  (setq evil-want-Y-yank-to-eol t)
   :config
   (evil-mode 1)
-  (evil-ex-define-cmd "sh[ell]" 'shell))
+  (evil-ex-define-cmd "sh[ell]" 'shell)
+  (general-nmap "M-j" #'evil-window-down)
+  (general-nmap "M-k" #'evil-window-up)
+  (general-nmap "M-h" #'evil-window-left)
+  (general-nmap "M-l" #'evil-window-right))
 
 (use-package evil-collection
   :ensure t
@@ -334,12 +360,16 @@ directory."
   :init
   (setq evil-collection-company-use-tng nil)
   :config
-  (evil-collection-init 'company)
-  (evil-collection-init 'term))
+  (evil-collection-init)
+  ;; wgrep
+  ;; Unbind these until I decide how I want to do this
+  (general-define-key :keymaps 'wgrep-mode-map "ZQ" nil)
+  (general-define-key :keymaps 'wgrep-mode-map "ZZ" nil))
 
 (use-package evil-commentary
   :ensure t
   :pin melpa
+  :diminish evil-commentary-mode
   :config
   (evil-commentary-mode +1))
 
@@ -347,6 +377,10 @@ directory."
   :ensure t
   :config
   (general-define-key "C-c m" 'magit))
+
+(use-package evil-magit
+  :ensure t
+  :pin melpa)
 
 (use-package yaml-mode
   :ensure t
@@ -368,9 +402,9 @@ directory."
   (add-hook 'evil-org-mode-hook
             (lambda ()
               (evil-org-set-key-theme)))
-  (general-nmap :keymaps 'evil-org-mode-map "go" 'org-open-at-point)
-  (general-nmap :keymaps 'evil-org-mode-map "M-o" 'evil-org-org-insert-heading-below)
-  (general-nmap :keymaps 'evil-org-mode-map "O" nil))
+  (general-nmap :keymaps 'evil-org-mode-map "gx" 'org-open-at-point)
+  (general-nmap :keymaps 'evil-org-mode-map "M-o" (evil-org-define-eol-command org-insert-heading))
+  (general-nmap :keymaps 'evil-org-mode-map "O" #'evil-org-open-above))
 
 (use-package restart-emacs
   :ensure t
@@ -379,6 +413,7 @@ directory."
 (use-package smartparens
   :ensure t
   :pin melpa
+  :diminish smartparens-mode
   :init
   (setq sp-show-pair-delay 0.2
         sp-show-pair-from-inside t
@@ -416,8 +451,10 @@ directory."
   :pin melpa
   :config
   (counsel-projectile-mode +1)
-  (general-nmap "C-p" 'counsel-projectile)
-  (general-nmap "C-s" 'counsel-projectile-ag))
+  (general-nmap "C-p" #'counsel-projectile)
+  (general-nmap "C-s" #'counsel-projectile-ag)
+  (general-nmap "C-n" #'counsel-projectile-switch-project)
+  (general-nmap "C-j" #'counsel-imenu))
 
 (use-package wgrep
   :ensure t
@@ -436,7 +473,8 @@ directory."
   (global-set-key (kbd "C-'") 'avy-goto-char-timer)
   (global-set-key (kbd "M-g '") 'avy-goto-line)
   (avy-setup-default)
-  (global-set-key (kbd "C-c C-j") 'avy-resume))
+  (global-set-key (kbd "C-c C-j") 'avy-resume)
+  (general-nmap "C-a" 'avy-goto-char-timer))
 
 (use-package eyebrowse
   ;; :after evil
@@ -446,6 +484,14 @@ directory."
   (setq eyebrowse-keymap-prefix (kbd "C-c e"))
   :config
   (eyebrowse-mode t))
+
+(use-package prettier-js
+  :ensure t
+  :pin melpa
+  :after (tide web-mode)
+  :config
+  (add-hook 'tide-mode-hook 'prettier-js-mode)
+  (add-hook 'web-mode-hook 'prettier-js-mode))
 
 ;; Reserved:
 ;; t - tag
@@ -488,6 +534,7 @@ directory."
 (use-package anzu
   :ensure t
   :pin melpa
+  :diminish anzu-mode
   :init
   (setq anzu-cons-mode-line-p nil)
   :config
@@ -502,23 +549,41 @@ directory."
   :after (evil anzu)
   :pin melpa)
 
-(use-package evil-snipe
+(use-package evil-surround
   :ensure t
-  :after evil
   :pin melpa
-  :init
-  (setq evil-snipe-spillover-scope 'buffer)
+  :diminish evil-surround-mode
   :config
-  (add-hook 'prog-mode-hook 'turn-on-evil-snipe-mode)
-  (add-hook 'text-mode-hook 'turn-on-evil-snipe-mode))
+  (global-evil-surround-mode t))
+;; (use-package evil-snipe
+;;   :ensure t
+;;   :after evil
+;;   :pin melpa
+;;   :diminish evil-snipe-local-mode
+;;   :init
+;;   (setq evil-snipe-spillover-scope 'buffer)
+;;   :config
+;;   (add-hook 'prog-mode-hook 'turn-on-evil-snipe-mode)
+;;   (add-hook 'text-mode-hook 'turn-on-evil-snipe-mode))
 
 (setq rockstar-preferred-web-mode-indent 2)
+
+(setq rockstar-preferred-json-indent 2)
 
 (use-package web-mode
   :ensure t
   :pin melpa
   :after add-node-modules-path
+  :init
+  (setq web-mode-enable-auto-quoting nil)
+  (setq web-mode-tag-auto-close-style t)
+  (setq web-mode-enable-auto-closing t)
+  (setq web-mode-enable-auto-pairing t)
+  (setq web-mode-enable-auto-indentation t)
+  (setq web-mode-enable-auto-opening t)
   :config
+  ;; Source: http://spacemacs.org/layers/+frameworks/react/README.html
+  (add-to-list 'web-mode-indentation-params '("lineup-args" . nil))
   (add-hook 'web-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
                                        web-mode-markup-indent-offset
@@ -529,13 +594,16 @@ directory."
                                        web-mode-code-indent-offset))
   (add-hook 'js-jsx-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
+                                       web-mode-attr-indent-offset
                                        js-indent-level))
   (add-hook 'css-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
                                        web-mode-css-indent-offset))
   (add-hook 'web-mode-hook #'add-node-modules-path)
   (add-hook 'javascript-mode-hook #'add-node-modules-path)
-  (add-hook 'css-mode-hook #'add-node-modules-path))
+  (add-hook 'css-mode-hook #'add-node-modules-path)
+  (add-hook 'json-mode-hook
+            (rockstar-init-mode-indent rockstar-preferred-json-indent)))
 
 (setq rockstar-preferred-ts-indent 2)
 
@@ -551,7 +619,7 @@ directory."
 (use-package tide
   :ensure t
   :pin melpa
-  :after (web-mode company-mode)
+  :after (web-mode company)
   :init
   (setq tide-tsserver-executable "node_modules/typescript/bin/tsserver")
   :config
@@ -564,6 +632,7 @@ directory."
   (add-hook 'web-mode-hook
             (lambda ()
               (when (string-equal "tsx" (file-name-extension buffer-file-name))
+                (setq-local web-mode-attr-indent-offset rockstar-preferred-ts-indent)
                 (rockstar-setup-tide-mode)))))
 
 (use-package hindent
@@ -587,7 +656,7 @@ directory."
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(powerline-default-separator (quote bar))
  '(safe-local-variable-values
    (quote
