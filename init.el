@@ -2,9 +2,9 @@
 
 (setq package-archives
       '(("gnu" . "http://elpa.gnu.org/packages/")
-  ("melpa-stable" . "https://stable.melpa.org/packages/")
-  ("melpa" . "http://melpa.org/packages/")
-  ("marmalade" . "http://marmalade-repo.org/packages/")))
+        ("melpa-stable" . "https://stable.melpa.org/packages/")
+        ("melpa" . "http://melpa.org/packages/")
+        ("marmalade" . "http://marmalade-repo.org/packages/")))
 
 (eval-when-compile (require 'use-package))
 
@@ -87,6 +87,8 @@ indentation size."
 (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?_))
 (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?/))
 (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?*))
+
+
 (setq rockstar-shell-clear-regex "clear\\|cls")
 
 (defun rockstar-shell-clear-next-output (output)
@@ -123,41 +125,70 @@ indentation size."
   :ensure t
   :pin melpa)
 
-;; (use-package helm
-;;   :init
-;;   (setq helm-grep-ag-command "ag --line-numbers -S --hidden --color --color-match '30;42' --nogroup %s %s %s")
-;;   (setq helm-mode-handle-completion-in-region nil)
-;;   :config
-;;   (helm-mode t)
-;;   (general-nmap "C-p" 'helm-multi-files)
-;;   :bind (([f1] . helm-M-x)
-;;          ("M-x" . helm-M-x)
-;;          ("C-x C-f" . helm-find-files)
-;;          ("C-x C-b" . helm-buffers-list)
-;;          ("C-h a" . helm-apropos)
-;;          ("M-i" . helm-imenu)))
+(use-package helm
+  :init
+  (setq helm-mode-handle-completion-in-region nil)
+  ;; :bind (("M-x" . helm-M-x)
+  ;;        ("C-x C-f" . helm-find-files)
+  ;;        ("C-x C-b" . helm-buffers-list)
+  ;;        ("C-h a" . helm-apropos))
+  :config
+  (helm-mode t)
+  (general-define-key :keymaps 'helm-map "<escape>" 'helm-keyboard-quit)
+  (general-nmap "C-j" 'helm-imenu)
+  (general-define-key "M-x" 'helm-M-x)
+  (general-define-key "C-h a" 'helm-apropos))
 
-(use-package ivy
+(use-package helm-projectile
   :ensure t
   :pin melpa
-  :after (smex hydra)
-  :diminish ivy-mode
-  :init
-  (setq ivy-use-virtual-buffers t)
-  (setq ivy-initial-inputs-alist nil)
+  :after (helm projectile)
   :config
-  (ivy-mode 1)
-  (general-define-key "C-c s" 'swiper)
-  (general-nmap "C-/" 'swiper)
-  (general-define-key :keymaps 'ivy-minibuffer-map "<escape>" 'abort-recursive-edit)
-  (general-define-key :keymaps 'ivy-minibuffer-map "C-j" 'ivy-next-line)
-  (general-define-key :keymaps 'ivy-minibuffer-map "C-k" 'ivy-previous-line)
-  (general-define-key :keymaps 'ivy-minibuffer-map "M-j" 'ivy-next-history-element)
-  (general-define-key :keymaps 'ivy-minibuffer-map "M-k" 'ivy-previous-history-element)
-  (general-define-key :keymaps 'ivy-minibuffer-map "C-d" 'ivy-alt-done)
-  (general-define-key :keymaps 'ivy-minibuffer-map "C-M-d" 'ivy-immediate-done)
-  (general-define-key "<f5>" 'ivy-push-view)
-  (general-define-key "<f6>" 'ivy-pop-view))
+  (helm-projectile-on)
+  (general-nmap "C-p" 'helm-projectile))
+
+(use-package helm-ag
+  :ensure t
+  :pin melpa
+  :after helm
+  :init
+  (setq helm-ag-base-command "rg --no-heading")
+  (setq helm-follow-mode-persistent t)
+  :config
+  (general-nmap "C-s" 'helm-do-ag-project-root))
+
+(use-package swiper-helm
+  :ensure t
+  :pin melpa
+  :after helm
+  :config
+  (general-nmap "C-/" 'swiper-helm))
+
+(use-package flx
+  :ensure t
+  :pin melpa)
+
+;; (use-package ivy
+;;   :ensure t
+;;   :pin melpa
+;;   :after (smex hydra flx)
+;;   :diminish ivy-mode
+;;   :init
+;;   (setq ivy-use-virtual-buffers t)
+;;   (setq ivy-initial-inputs-alist nil)
+;;   :config
+;;   (ivy-mode 1)
+;;   (general-define-key "C-c s" 'swiper)
+;;   (general-nmap "C-/" 'swiper)
+;;   (general-define-key :keymaps 'ivy-minibuffer-map "<escape>" 'abort-recursive-edit)
+;;   (general-define-key :keymaps 'ivy-minibuffer-map "C-j" 'ivy-next-line)
+;;   (general-define-key :keymaps 'ivy-minibuffer-map "C-k" 'ivy-previous-line)
+;;   (general-define-key :keymaps 'ivy-minibuffer-map "M-j" 'ivy-next-history-element)
+;;   (general-define-key :keymaps 'ivy-minibuffer-map "M-k" 'ivy-previous-history-element)
+;;   (general-define-key :keymaps 'ivy-minibuffer-map "C-d" 'ivy-alt-done)
+;;   (general-define-key :keymaps 'ivy-minibuffer-map "C-M-d" 'ivy-immediate-done)
+;;   (general-define-key "<f5>" 'ivy-push-view)
+;;   (general-define-key "<f6>" 'ivy-pop-view))
 
 (use-package mwim
   :ensure t
@@ -166,14 +197,14 @@ indentation size."
   (general-define-key "C-a" 'mwim-beginning-of-code-or-line)
   (general-define-key "C-e" 'mwim-end-of-code-or-line))
 
-(use-package counsel
-  :ensure t
-  :pin melpa
-  :after ivy
-  :diminish counsel-mode
-  :config
-  (counsel-mode 1)
-  (general-define-key "C-c r" 'counsel-recentf))
+;; (use-package counsel
+;;   :ensure t
+;;   :pin melpa
+;;   :after ivy
+;;   :diminish counsel-mode
+;;   :config
+;;   (counsel-mode 1)
+;;   (general-define-key "C-c r" 'counsel-recentf))
 
 (defun rockstar-neotree-toggle ()
   "Toggle NeoTree at the project root if it exists, or the default
@@ -188,17 +219,55 @@ directory."
           (neotree-dir (or project-dir default-dir))
           (neotree-find file-name)))))
 
+(defun neo-open-file-hide (full-path &optional arg)
+  "Open a file node and hides tree."
+  (neo-global--select-mru-window arg)
+  (find-file full-path)
+  (neotree-hide))
+
+(defun neotree-enter-hide (&optional arg)
+  "Enters file and hides neotree directly"
+  (interactive "P")
+  (neo-buffer--execute arg 'neo-open-file-hide 'neo-open-dir))
+
 (use-package neotree
-  :after (all-the-icons)
+  :after all-the-icons
   :config
-  (setq neo-theme (if (display-graphic-p) 'icons 'arrow)))
+  ;; (add-hook 'neo-enter-hook
+  ;;           (lambda (type) (if (equal type 'file)
+  ;;                              (neotree-hide))))
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+  (general-nmap "C-\\" 'rockstar-neotree-toggle)
+  (add-to-list 'all-the-icons-icon-alist
+               '("\\.tsx$" all-the-icons-fileicon "tsx" :height 1.0 :v-adjust -0.1 :face all-the-icons-cyan-alt)))
+
+(use-package vscode-icon
+  :ensure t
+  :pin melpa
+  :commands (vscode-icon-for-file))
+
+;; (use-package dired-sidebar
+;;   :ensure t
+;;   :pin melpa
+;;   :after (all-the-icons all-the-icons-dired evil)
+;;   :init
+;;   ;; https://github.com/jojojames/dired-sidebar#my-settings
+;;   (add-hook 'dired-sidebar-mode-hook
+;;             (lambda ()
+;;               (unless (file-remote-p default-directory)
+;;                 (auto-revert-mode))))
+;;   (setq dired-sidebar-use-evil-integration nil)
+;;   ;; (setq dired-sidebar-theme 'icons)
+;;   :config
+;;   ;; TODO: Configure RET on directory to toggle subtree
+;;   (general-nmap "C-\\" 'dired-sidebar-toggle-sidebar))
 
 (use-package projectile
   :ensure t
   :pin melpa
-  :after ivy
+  ;; :after ivy
   :init
-  (setq projectile-completion-system 'ivy)
+  ;; (setq projectile-completion-system 'ivy)
   :config
   (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
   (general-define-key :keymaps 'projectile-mode-map
@@ -233,21 +302,23 @@ directory."
   :diminish company-mode
   :config
   (global-company-mode 1)
-  (general-imap "TAB" 'company-indent-or-complete-common)
+  (general-imap "C-SPC" 'company-complete)
   (general-define-key :keymaps 'company-active-map
                       "<S-return>"
-                      'rockstar-company-shifted-return))
-  ;; Align with Ivy keys. 
-  ;; (general-define-key :keymaps 'company-active-map "C-n" 'company-select-next)
-  ;; (general-define-key :keymaps 'company-active-map
-  ;;                     "C-p"
-  ;;                     'company-select-previous)
-  ;; (general-define-key :keymaps 'company-active-map "M-n" nil)
-  ;; (general-define-key :keymaps 'company-active-map "M-p" nil))
+                      'rockstar-company-shifted-return)
+  (general-define-key :keymaps 'company-active-map "C-n" 'company-select-next)
+  (general-define-key :keymaps 'company-active-map
+                      "C-p"
+                      'company-select-previous))
 
 (use-package all-the-icons
   :ensure t
-  :pin melpa-stable)
+  :pin melpa)
+
+(use-package all-the-icons-dired
+  :ensure t
+  :pin melpa
+  :after all-the-icons)
 
 (use-package spaceline
   :ensure t
@@ -269,12 +340,34 @@ directory."
   (add-hook 'after-init-hook 'global-flycheck-mode)
   (setq flycheck-display-errors-function #'flycheck-display-error-messages-unless-error-list))
 
-(use-package intero
-  :after (haskell-mode flycheck)
+;; (use-package intero
+;;   :after (haskell-mode flycheck)
+;;   :config
+;;   (add-hook 'haskell-mode-hook 'intero-mode)
+;;   (flycheck-add-next-checker 'intero
+;;                              '(warning . haskell-hlint)))
+
+(use-package lsp-mode
+  :ensure t
+  :pin melpa)
+
+(use-package lsp-ui
+  :ensure t
+  :pin melpa
+  :after lsp-mode
   :config
-  (add-hook 'haskell-mode-hook 'intero-mode)
-  (flycheck-add-next-checker 'intero
-                             '(warning . haskell-hlint)))
+  (add-hook 'lsp-mode-hook 'lsp-ui-mode))
+
+(use-package lsp-haskell
+  :ensure t
+  :pin melpa
+  :after (lsp-mode lsp-ui)
+  :init
+  (setq lsp-haskell-process-path-hie "~/.local/bin/hie-wrapper")
+  :config
+  (add-hook 'haskell-mode-hook 'lsp-haskell-enable)
+  (add-hook 'haskell-mode-hook 'flycheck-mode)
+  (add-hook 'haskell-mode-hook (rockstar-init-mode-indent 2)))
 
 (defun rockstar-org-gcal-fetch-silently ()
     (org-gcal-sync nil t t))
@@ -356,15 +449,40 @@ directory."
 (use-package evil-collection
   :ensure t
   :pin melpa
-  :after evil
+  :after (evil neotree)
   :init
   (setq evil-collection-company-use-tng nil)
+  ;; line-mode has some weird effects on how output works, I think we want to be
+  ;; more conscious about using it
+  (setq evil-collection-term-sync-state-and-mode-p nil)
   :config
   (evil-collection-init)
+  ;; Still enter character mode on insert
+  (add-hook 'term-mode-hook
+            (lambda ()
+              (add-hook 'evil-insert-state-entry-hook
+                        evil-collection-term-sync-state-function nil t)))
+  (general-nmap :keymaps 'neotree-mode-map "<return>" 'neotree-enter-hide)
+  ;; (add-hook
+  ;;  'neotree-mode-hook
+  ;;  (lambda ()
+  ;;    (define-key evil-normal-state-local-map (kbd "RET") 'neotree-enter-hide)))
+  ;; TODO: Does this actually work? 
+  (general-def 'normal term-mode-map
+    [remap undo-tree-undo] #'ignore
+    [remap undo-tree-redo] #'ignore)
   ;; wgrep
   ;; Unbind these until I decide how I want to do this
   (general-define-key :keymaps 'wgrep-mode-map "ZQ" nil)
   (general-define-key :keymaps 'wgrep-mode-map "ZZ" nil))
+
+;; (use-package evil-easymotion
+;;   :ensure t
+;;   :pin melpa
+;;   :after evil
+;;   :config
+;;   (define-key evil-motion-state-map (kbd ",") nil)
+;;   (evilem-default-keybindings ", ,"))
 
 (use-package evil-commentary
   :ensure t
@@ -409,6 +527,16 @@ directory."
 (use-package restart-emacs
   :ensure t
   :pin melpa)
+    
+
+;; https://github.com/Fuco1/smartparens/issues/80
+;; https://github.com/xenodium/dotsies/commit/c94ea6116346ab7fe2c0171fa859480dedebb2ed
+(defun rockstar-create-newline-and-enter-sexp (&rest _ignored)
+  "Open a new brace or bracket expression, with relevant newlines and indent."
+  (newline)
+  (indent-according-to-mode)
+  (forward-line -1)
+  (indent-according-to-mode))
 
 (use-package smartparens
   :ensure t
@@ -423,6 +551,14 @@ directory."
         sp-highlight-wrap-tag-overlay nil)
   :config
   (require 'smartparens-config)
+  (sp-local-pair 'prog-mode
+                 "{"
+                 nil
+                 :post-handlers '((rockstar-create-newline-and-enter-sexp "RET")))
+  (sp-local-pair 'prog-mode
+                 "["
+                 nil
+                 :post-handlers '((rockstar-create-newline-and-enter-sexp "RET")))
   (smartparens-global-mode +1)
   (show-smartparens-global-mode +1))
 
@@ -445,16 +581,16 @@ directory."
   :config
   (global-hl-todo-mode +1))
 
-(use-package counsel-projectile
-  :after counsel
-  :ensure t
-  :pin melpa
-  :config
-  (counsel-projectile-mode +1)
-  (general-nmap "C-p" #'counsel-projectile)
-  (general-nmap "C-s" #'counsel-projectile-ag)
-  (general-nmap "C-n" #'counsel-projectile-switch-project)
-  (general-nmap "C-j" #'counsel-imenu))
+;; (use-package counsel-projectile
+;;   :after counsel
+;;   :ensure t
+;;   :pin melpa
+;;   :config
+;;   (counsel-projectile-mode +1)
+;;   (general-nmap "C-p" #'counsel-projectile)
+;;   (general-nmap "C-s" #'counsel-projectile-ag)
+;;   (general-nmap "C-n" #'counsel-projectile-switch-project)
+;;   (general-nmap "C-j" #'counsel-imenu))
 
 (use-package wgrep
   :ensure t
@@ -470,11 +606,34 @@ directory."
   :init
   (setq avy-timeout-seconds 0.3)
   :config
+  ;; Note: Evil integration is provided by evil-collection
+  ;; (define-key evil-motion-state-map (kbd ",") nil)
+  ;; (general-nmap ", w" 'avy-goto-word-0-below)
+  ;; (general-nmap ", b" 'avy-goto-word-0-above)
+  ;; (general-nmap ", j" 'avy-goto-line-below)
+  ;; (general-nmap ", k" 'avy-goto-line-above)
   (global-set-key (kbd "C-'") 'avy-goto-char-timer)
   (global-set-key (kbd "M-g '") 'avy-goto-line)
   (avy-setup-default)
   (global-set-key (kbd "C-c C-j") 'avy-resume)
   (general-nmap "C-a" 'avy-goto-char-timer))
+
+(use-package evil-easymotion
+  :ensure t
+  :pin melpa
+  :config
+  (define-key evil-motion-state-map (kbd ",") nil)
+  ;; Redefine some default motions to enable traversing multiple lines
+  ;; https://github.com/PythonNut/evil-easymotion/issues/50
+  (evilem-make-motion evilem-motion-forward-word-begin #'evil-forward-word-begin)
+  (evilem-make-motion evilem-motion-forward-WORD-begin #'evil-forward-WORD-begin)
+  (evilem-make-motion evilem-motion-forward-word-end #'evil-forward-word-end)
+  (evilem-make-motion evilem-motion-forward-WORD-end #'evil-forward-WORD-end)
+  (evilem-make-motion evilem-motion-backward-word-begin #'evil-backward-word-begin)
+  (evilem-make-motion evilem-motion-backward-WORD-begin #'evil-backward-WORD-begin)
+  (evilem-make-motion evilem-motion-backward-word-end #'evil-backward-word-end)
+  (evilem-make-motion evilem-motion-backward-WORD-end #'evil-backward-WORD-end)
+  (evilem-default-keybindings ","))
 
 (use-package eyebrowse
   ;; :after evil
@@ -488,9 +647,9 @@ directory."
 (use-package prettier-js
   :ensure t
   :pin melpa
-  :after (tide web-mode)
+  :after (typescript-mode web-mode)
   :config
-  (add-hook 'tide-mode-hook 'prettier-js-mode)
+  (add-hook 'typescript-mode-hook 'prettier-js-mode)
   (add-hook 'web-mode-hook 'prettier-js-mode))
 
 ;; Reserved:
@@ -573,7 +732,7 @@ directory."
 (use-package web-mode
   :ensure t
   :pin melpa
-  :after add-node-modules-path
+  :after (add-node-modules-path smartparens)
   :init
   (setq web-mode-enable-auto-quoting nil)
   (setq web-mode-tag-auto-close-style t)
@@ -584,11 +743,19 @@ directory."
   :config
   ;; Source: http://spacemacs.org/layers/+frameworks/react/README.html
   (add-to-list 'web-mode-indentation-params '("lineup-args" . nil))
+  (add-to-list 'web-mode-indentation-params '("lineup-concats" . nil))
+  (add-to-list 'web-mode-indentation-params '("lineup-calls" . nil))
+  ;; Smartparens doesn't integrate that well with defining tags in web-mode
+  (sp-with-modes '(web-mode)
+    (sp-local-pair "<" nil :actions nil))
   (add-hook 'web-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
                                        web-mode-markup-indent-offset
                                        web-mode-code-indent-offset
-                                       web-mode-css-indent-offset))
+                                       web-mode-css-indent-offset
+                                       web-mode-attr-indent-offset
+                                       web-mode-attr-value-indent-offset
+                                       typescript-indent-level))
   (add-hook 'javascript-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
                                        web-mode-code-indent-offset))
@@ -598,14 +765,17 @@ directory."
                                        js-indent-level))
   (add-hook 'css-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
+                                       css-indent-offset
                                        web-mode-css-indent-offset))
   (add-hook 'web-mode-hook #'add-node-modules-path)
+  (add-hook 'web-mode-hook (rockstar-add-word-syntax-entry ?_))
   (add-hook 'javascript-mode-hook #'add-node-modules-path)
   (add-hook 'css-mode-hook #'add-node-modules-path)
   (add-hook 'json-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-json-indent)))
 
 (setq rockstar-preferred-ts-indent 2)
+(setq rockstar-use-tslint t)
 
 (defun rockstar-setup-tide-mode ()
   (interactive)
@@ -614,17 +784,37 @@ directory."
   (setq flycheck-check-syntax-automatically '(save mode-enabled))
   (eldoc-mode +1)
   (tide-hl-identifier-mode +1)
-  (company-mode +1))
+  (company-mode +1)
+  (when rockstar-use-tslint
+    (add-hook 'after-save-hook 'tslint-fix-file-and-revert nil 'local)))
 
-(use-package tide
+(defun rockstar-setup-typescript ()
+  (interactive)
+  (when rockstar-use-tslint
+    (add-hook 'after-save-hook 'tslint-fix-file-and-revert nil 'local)))
+
+;; https://gist.github.com/hgiasac/b8e4f50ea9dc504e3e52163e58872a4e
+(defun tslint-fix-file ()
+  "Tslint fix file."
+  (interactive)
+  (message (concat "tslint --fix " (buffer-file-name)))
+  (call-process "tslint" nil nil nil "--fix" (buffer-file-name)))
+
+(defun tslint-fix-file-and-revert ()
+  "Format the current file with TSLint."
+  (interactive)
+  (when (or (eq major-mode 'typescript-mode) (eq major-mode 'web-mode))
+    (if (executable-find "tslint")
+        (tslint-fix-file)
+      (message "TSLint not found."))))
+
+(use-package typescript-mode
   :ensure t
   :pin melpa
-  :after (web-mode company)
-  :init
-  (setq tide-tsserver-executable "node_modules/typescript/bin/tsserver")
   :config
   (add-hook 'typescript-mode-hook #'add-node-modules-path)
-  (add-hook 'typescript-mode-hook #'rockstar-setup-tide-mode)
+  (add-hook 'typescript-mode-hook (rockstar-add-word-syntax-entry ?_))
+  (add-hook 'typescript-mode-hook #'rockstar-setup-typescript)
   (add-hook 'typescript-mode-hook (rockstar-init-mode-indent rockstar-preferred-ts-indent
                                                              typescript-indent-level))
   (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
@@ -632,14 +822,100 @@ directory."
   (add-hook 'web-mode-hook
             (lambda ()
               (when (string-equal "tsx" (file-name-extension buffer-file-name))
-                (setq-local web-mode-attr-indent-offset rockstar-preferred-ts-indent)
-                (rockstar-setup-tide-mode)))))
+                (rockstar-setup-typescript)))))
+
+(defun rockstar-company-transformer-javascript-lsp (candidates)
+  (let ((completion-ignore-case t))
+    (all-completions (company-grab-symbol) candidates)))
+
+;; https://github.com/emacs-lsp/lsp-javascript
+(defun rockstar-fix-company-for-javascript-lsp nil
+  (make-local-variable 'company-transformers)
+  (push 'rockstar-company-transformer-javascript-lsp company-transformers))
+
+(use-package lsp-javascript-typescript
+  :ensure t
+  :pin melpa
+  :after (typescript-mode web-mode)
+  :config
+  ;; Override this function to work with TSX files
+  ;; (defun lsp-typescript--language-id (buffer)
+  ;;   (let ((ext (file-name-extension (buffer-file-name buffer))))
+  ;;     (cond ((equal "ts" ext) "typescript")
+  ;;           ((equal "tsx" ext) "typescriptreact")
+  ;;           (t "javascript"))))
+  
+  ;; TODO: Investigate whether this workaround is necessary, also pin version to
+  ;; https://github.com/emacs-lsp/lsp-javascript/commit/ab62826962887e82f0bc968817be4fc89a6953e4
+  (defun lsp-javascript-typescript--render-string (str)
+    (condition-case nil
+        (with-temp-buffer
+          (delay-mode-hooks (web-mode))
+          (insert str)
+          (font-lock-ensure)
+          (buffer-string))
+      (error str)))
+
+  (add-hook 'js-mode-hook #'lsp-javascript-typescript-enable)
+  (add-hook 'js-mode-hook #'rockstar-fix-company-for-javascript-lsp)
+  (add-hook 'typescript-mode-hook #'lsp-javascript-typescript-enable)
+  (add-hook 'typescript-mode-hook #'rockstar-fix-company-for-javascript-lsp)
+  (add-hook 'web-mode-hook #'lsp-javascript-typescript-enable)
+  (add-hook 'web-mode-hook #'rockstar-setup-typescript))
+
+(defun rockstar-colorize-compilation-buffer ()
+  (ansi-color-apply-on-region compilation-filter-start (point-max)))
+
+(defun rockstar-colorize-buffer (proc &rest args)
+  (interactive)
+  (with-current-buffer (process-buffer proc)
+    (read-only-mode -1)
+    (ansi-color-apply-on-region (point-min) (point-max))
+    (read-only-mode 1)))
+
+(use-package ansi-color
+  :ensure t
+  :pin melpa
+  :after magit
+  :config
+  (add-hook 'compilation-filter-hook #'rockstar-colorize-compilation-buffer)
+  ;; https://github.com/magit/magit/issues/1878
+  (advice-add 'magit-process-filter :after #'rockstar-colorize-buffer))
+
+;; (use-package tide
+;;   :ensure t
+;;   :pin melpa
+;;   :after (web-mode company typescript-mode)
+;;   :init
+;;   (setq tide-tsserver-executable "node_modules/typescript/bin/tsserver")
+;;   :config
+;;   (add-hook 'typescript-mode-hook #'add-node-modules-path)
+;;   (add-hook 'typescript-mode-hook #'rockstar-setup-tide-mode)
+;;   (add-hook 'typescript-mode-hook (rockstar-init-mode-indent rockstar-preferred-ts-indent
+;;                                                              typescript-indent-level))
+;;   (add-to-list 'auto-mode-alist '("\\.tsx\\'" . web-mode))
+;;   (flycheck-add-mode 'typescript-tslint 'web-mode)
+;;   (add-hook 'web-mode-hook
+;;             (lambda ()
+;;               (when (string-equal "tsx" (file-name-extension buffer-file-name))
+;;                 (setq-local web-mode-attr-indent-offset rockstar-preferred-ts-indent)
+;;                 (setq-local web-mode-code-indent-offset rockstar-preferred-ts-indent)
+;;                 (setq-local web-mode-attr-value-indent-offset rockstar-preferred-ts-indent)
+;;                 (setq-local web-mode-markup-indent-offset rockstar-preferred-ts-indent)
+;;                 (setq-local typescript-indent-level rockstar-preferred-ts-indent)
+;;                 (rockstar-setup-tide-mode)))))
 
 (use-package hindent
   :ensure t
   :pin melpa
   :config
   (add-hook 'haskell-mode-hook 'hindent-mode))
+
+(use-package feature-mode
+  :ensure t
+  :pin melpa
+  :config
+  (add-to-list 'auto-mode-alist '("\.feature$" . feature-mode)))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -651,12 +927,13 @@ directory."
  '(custom-safe-themes
    (quote
     ("aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
+ '(dired-sidebar-theme (quote icons))
  '(horizontal-scroll-bar-mode nil)
  '(neo-theme (quote icons))
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(powerline-default-separator (quote bar))
  '(safe-local-variable-values
    (quote
