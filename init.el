@@ -25,26 +25,15 @@
   (interactive "*p")
   (whole-line-or-region-call-with-region 'indent-region prefix))
 
-(general-define-key "C-s" 'isearch-forward-regexp)
-(general-define-key "C-r" 'isearch-backward-regexp)
-(general-define-key "C-M-s" 'isearch-forward)
-(general-define-key "C-M-r" 'isearch-backward)
-(general-define-key "M-%" 'query-replace-regexp)
-(general-define-key "C-M-%" 'query-replace)
-(general-define-key "M-p" 'query-replace-regexp)
-(general-define-key "C-<return>" 'newline) ;; Easier to jam the control key
 (general-define-key "C-c o" 'mode-line-other-buffer)
 
-(autoload 'zap-up-to-char "misc"
-  "Kill up to, but not including ARGth occurrence of CHAR."
-  t)
-
-(general-define-key "M-z" 'zap-up-to-char)
+(general-imap :keymaps 'override "C-c" 'evil-normal-state)
 
 (setq ring-bell-function 'ignore)
 (setq backup-directory-alist `(("." . ,(concat user-emacs-directory "backups"))))
 (setq enable-recursive-minibuffers t)
 (setq confirm-kill-processes nil)
+(setq confirm-kill-emacs 'y-or-n-p)
 
 (fset 'yes-or-no-p 'y-or-n-p)
 (global-auto-revert-mode t)
@@ -126,6 +115,7 @@ indentation size."
   :pin melpa)
 
 (use-package helm
+  :diminish helm-mode
   :init
   (setq helm-mode-handle-completion-in-region nil)
   ;; :bind (("M-x" . helm-M-x)
@@ -135,7 +125,7 @@ indentation size."
   :config
   (helm-mode t)
   (general-define-key :keymaps 'helm-map "<escape>" 'helm-keyboard-quit)
-  (general-nmap "C-j" 'helm-imenu)
+  (general-nmap "M-i" 'helm-imenu)
   (general-define-key "M-x" 'helm-M-x)
   (general-define-key "C-h a" 'helm-apropos))
 
@@ -143,9 +133,12 @@ indentation size."
   :ensure t
   :pin melpa
   :after (helm projectile)
+  :init
+  (setq helm-projectile-truncate-lines t)
   :config
   (helm-projectile-on)
-  (general-nmap "C-p" 'helm-projectile))
+  (general-nmap "C-p" 'helm-projectile)
+  (general-nmap "C-n" 'ignore))
 
 (use-package helm-ag
   :ensure t
@@ -155,7 +148,7 @@ indentation size."
   (setq helm-ag-base-command "rg --no-heading")
   (setq helm-follow-mode-persistent t)
   :config
-  (general-nmap "C-s" 'helm-do-ag-project-root))
+  (general-nmap "C-S" 'helm-do-ag-project-root))
 
 (use-package swiper-helm
   :ensure t
@@ -233,11 +226,9 @@ directory."
 (use-package neotree
   :after all-the-icons
   :config
-  ;; (add-hook 'neo-enter-hook
-  ;;           (lambda (type) (if (equal type 'file)
-  ;;                              (neotree-hide))))
   (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
-  (general-nmap "C-\\" 'rockstar-neotree-toggle)
+  (general-nmap "C-B" 'rockstar-neotree-toggle)
+  (general-nmap :keymaps 'neotree-mode-map "<escape>" 'neotree-toggle)
   (add-to-list 'all-the-icons-icon-alist
                '("\\.tsx$" all-the-icons-fileicon "tsx" :height 1.0 :v-adjust -0.1 :face all-the-icons-cyan-alt)))
 
@@ -284,7 +275,14 @@ directory."
   :init
   (setq uniquify-buffer-name-style 'forward)
   (setq uniquify-after-kill-buffer-p t)
+  (setq uniquify-min-dir-content 1)
   (setq uniquify-ignore-buffers-re "^\\*"))
+
+;; (use-package nyan-mode
+;;   :ensure t
+;;   :pin melpa
+;;   :config
+;;   (nyan-mode 1))
 
 (use-package undo-tree
   :diminish undo-tree-mode
@@ -295,21 +293,18 @@ directory."
   "Abort the current company completion and create a new line."
   (interactive)
   (company-abort)
-  (funcall-interactively (local-key-binding (kbd "<return>"))))
-
+  (execute-kbd-macro (kbd "<return>")))
 
 (use-package company
   :diminish company-mode
   :config
   (global-company-mode 1)
-  (general-imap "C-SPC" 'company-complete)
+  (general-imap "M-/" 'company-complete)
   (general-define-key :keymaps 'company-active-map
                       "<S-return>"
                       'rockstar-company-shifted-return)
   (general-define-key :keymaps 'company-active-map "C-n" 'company-select-next)
-  (general-define-key :keymaps 'company-active-map
-                      "C-p"
-                      'company-select-previous))
+  (general-define-key :keymaps 'company-active-map "C-p" 'company-select-previous))
 
 (use-package all-the-icons
   :ensure t
@@ -320,18 +315,28 @@ directory."
   :pin melpa
   :after all-the-icons)
 
+;; (use-package smart-mode-line
+;;   :ensure t
+;;   :pin melpa-stable
+;;   :init
+;;   (setq sml/theme 'dark)
+;;   :config
+;;   (sml/setup))
 (use-package spaceline
   :ensure t
   :pin melpa-stable
   :init
-  (setq spaceline-window-numbers-unicode t)
+  (setq spaceline-workspace-numbers-unicode nil)
   (setq powerline-image-apple-rgb t)  ; Fix colors on macOS
   (setq powerline-height 20)
   (setq powerline-default-separator nil)
   (setq spaceline-highlight-face-func 'spaceline-highlight-face-evil-state)
   :config
+  (require 'spaceline-config)
   (spaceline-spacemacs-theme)
-  (spaceline-toggle-workspace-number-off))
+  (spaceline-toggle-window-number-off)
+  (spaceline-toggle-workspace-number-on)
+  (spaceline-toggle-nyan-cat-on))
 
 (use-package flycheck
   :ensure t
@@ -351,12 +356,24 @@ directory."
   :ensure t
   :pin melpa)
 
+;; (use-package company-lsp
+;;   :ensure t
+;;   :pin melpa
+;;   :after company
+;;   :init
+;;   (setq company-lsp-async nil)
+;;   (setq company-lsp-enable-snippet t)
+;;   :config
+;;   (push 'company-lsp company-backends))
+
 (use-package lsp-ui
   :ensure t
   :pin melpa
   :after lsp-mode
   :config
-  (add-hook 'lsp-mode-hook 'lsp-ui-mode))
+  (add-hook 'lsp-mode-hook 'lsp-ui-mode)
+  (general-nmap :keymaps 'lsp-ui-mode-map "<f2>" 'lsp-rename)
+  (general-nmap :keymaps 'lsp-ui-mode-map "<f3>" 'lsp-format-buffer))
 
 (use-package lsp-haskell
   :ensure t
@@ -438,6 +455,7 @@ directory."
   (setq evil-want-C-u-scroll t)
   (setq evil-want-integration nil)
   (setq evil-want-Y-yank-to-eol t)
+  (setq evil-cross-lines t)
   :config
   (evil-mode 1)
   (evil-ex-define-cmd "sh[ell]" 'shell)
@@ -559,6 +577,10 @@ directory."
                  "["
                  nil
                  :post-handlers '((rockstar-create-newline-and-enter-sexp "RET")))
+  (sp-local-pair 'prog-mode
+                 "("
+                 nil
+                 :post-handlers '((rockstar-create-newline-and-enter-sexp "RET")))
   (smartparens-global-mode +1)
   (show-smartparens-global-mode +1))
 
@@ -621,27 +643,24 @@ directory."
 (use-package evil-easymotion
   :ensure t
   :pin melpa
+  :after (evil-collection avy)
   :config
   (define-key evil-motion-state-map (kbd ",") nil)
-  ;; Redefine some default motions to enable traversing multiple lines
-  ;; https://github.com/PythonNut/evil-easymotion/issues/50
-  (evilem-make-motion evilem-motion-forward-word-begin #'evil-forward-word-begin)
-  (evilem-make-motion evilem-motion-forward-WORD-begin #'evil-forward-WORD-begin)
-  (evilem-make-motion evilem-motion-forward-word-end #'evil-forward-word-end)
-  (evilem-make-motion evilem-motion-forward-WORD-end #'evil-forward-WORD-end)
-  (evilem-make-motion evilem-motion-backward-word-begin #'evil-backward-word-begin)
-  (evilem-make-motion evilem-motion-backward-WORD-begin #'evil-backward-WORD-begin)
-  (evilem-make-motion evilem-motion-backward-word-end #'evil-backward-word-end)
-  (evilem-make-motion evilem-motion-backward-WORD-end #'evil-backward-WORD-end)
+  ;; Requires evil-collection avy integration
+  (general-define-key :keymaps 'evilem-map "," 'avy-goto-word-1)
   (evilem-default-keybindings ","))
 
 (use-package eyebrowse
-  ;; :after evil
   :ensure t
   :pin melpa
   :init
-  (setq eyebrowse-keymap-prefix (kbd "C-c e"))
+  (setq eyebrowse-new-workspace t)
   :config
+  (general-nmap "C-1" 'eyebrowse-switch-to-window-config-1)
+  (general-nmap "C-2" 'eyebrowse-switch-to-window-config-2)
+  (general-nmap "C-3" 'eyebrowse-switch-to-window-config-3)
+  (general-nmap "C-4" 'eyebrowse-switch-to-window-config-4)
+  (general-nmap "C-5" 'eyebrowse-switch-to-window-config-5)
   (eyebrowse-mode t))
 
 (use-package prettier-js
@@ -649,6 +668,7 @@ directory."
   :pin melpa
   :after (typescript-mode web-mode)
   :config
+  (add-hook 'javascript-mode-hook 'prettier-js-mode)
   (add-hook 'typescript-mode-hook 'prettier-js-mode)
   (add-hook 'web-mode-hook 'prettier-js-mode))
 
@@ -741,6 +761,8 @@ directory."
   (setq web-mode-enable-auto-indentation t)
   (setq web-mode-enable-auto-opening t)
   :config
+  (add-to-list 'auto-mode-alist '("\\.js[x]?\\'" . web-mode))
+  (setq web-mode-content-types-alist '(("jsx" . "\\.js[x]?\\'")))
   ;; Source: http://spacemacs.org/layers/+frameworks/react/README.html
   (add-to-list 'web-mode-indentation-params '("lineup-args" . nil))
   (add-to-list 'web-mode-indentation-params '("lineup-concats" . nil))
@@ -758,7 +780,9 @@ directory."
                                        typescript-indent-level))
   (add-hook 'javascript-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
-                                       web-mode-code-indent-offset))
+                                       js-indent-level))
+  (add-hook 'javascript-mode-hook (rockstar-add-word-syntax-entry ?_))
+  (add-hook 'javascript-mode-hook #'add-node-modules-path)
   (add-hook 'js-jsx-mode-hook
             (rockstar-init-mode-indent rockstar-preferred-web-mode-indent
                                        web-mode-attr-indent-offset
@@ -847,14 +871,14 @@ directory."
   
   ;; TODO: Investigate whether this workaround is necessary, also pin version to
   ;; https://github.com/emacs-lsp/lsp-javascript/commit/ab62826962887e82f0bc968817be4fc89a6953e4
-  (defun lsp-javascript-typescript--render-string (str)
-    (condition-case nil
-        (with-temp-buffer
-          (delay-mode-hooks (web-mode))
-          (insert str)
-          (font-lock-ensure)
-          (buffer-string))
-      (error str)))
+  ;; (defun lsp-javascript-typescript--render-string (str)
+  ;;   (condition-case nil
+  ;;       (with-temp-buffer
+  ;;         (delay-mode-hooks (web-mode))
+  ;;         (insert str)
+  ;;         (font-lock-ensure)
+  ;;         (buffer-string))
+  ;;     (error str)))
 
   (add-hook 'js-mode-hook #'lsp-javascript-typescript-enable)
   (add-hook 'js-mode-hook #'rockstar-fix-company-for-javascript-lsp)
@@ -862,6 +886,13 @@ directory."
   (add-hook 'typescript-mode-hook #'rockstar-fix-company-for-javascript-lsp)
   (add-hook 'web-mode-hook #'lsp-javascript-typescript-enable)
   (add-hook 'web-mode-hook #'rockstar-setup-typescript))
+
+(use-package yasnippet
+  :diminish yas-minor-mode
+  :ensure t
+  :pin melpa
+  :config
+  (yas-global-mode 1))
 
 (defun rockstar-colorize-compilation-buffer ()
   (ansi-color-apply-on-region compilation-filter-start (point-max)))
@@ -926,14 +957,14 @@ directory."
  '(custom-enabled-themes (quote (dracula)))
  '(custom-safe-themes
    (quote
-    ("aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
+    ("3c83b3676d796422704082049fc38b6966bcad960f896669dfc21a7a37a748fa" "aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
  '(dired-sidebar-theme (quote icons))
  '(horizontal-scroll-bar-mode nil)
  '(neo-theme (quote icons))
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons spaceline magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(powerline-default-separator (quote bar))
  '(safe-local-variable-values
    (quote
