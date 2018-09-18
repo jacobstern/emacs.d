@@ -16,9 +16,7 @@
 
 (general-evil-setup)
 
-(general-create-definer rockstar-define-leader
-  :keymaps 'override
-  :prefix "C-c SPC")
+(general-create-definer rockstar-define-leader :prefix "SPC" :keymaps 'normal)
 
 (defun rockstar-whole-line-or-region-indent (prefix)
   "Indent region or PREFIX whole lines."
@@ -27,7 +25,9 @@
 
 (general-define-key "C-c o" 'mode-line-other-buffer)
 
-(general-imap :keymaps 'override "C-c" 'evil-normal-state)
+(general-imap "C-c" 'evil-normal-state)
+(general-imap :keymaps 'override "C-x" 'ignore)
+(general-imap :keymaps 'override "M-x" 'ignore)
 
 (setq ring-bell-function 'ignore)
 (setq backup-directory-alist `(("." . ,(concat user-emacs-directory "backups"))))
@@ -83,18 +83,71 @@ indentation size."
 (defun rockstar-shell-clear-next-output (output)
   "Clear the next output from ComInt and remove this hook."
   (remove-hook 'comint-preoutput-filter-functions 'rockstar-shell-clear-next-output)
-  (comint-clear-buffer) output)
+  (recenter-top-bottom 0) output)
 
 (defun rockstar-shell-clear-listener (input)
   (when (string-match-p rockstar-shell-clear-regex (string-trim input))
     (add-hook 'comint-preoutput-filter-functions 'rockstar-shell-clear-next-output)))
 
+(use-package xterm-color
+  :ensure t
+  :pin melpa
+  :after shell
+  :init
+  (setq xterm-color-names
+        ["#000000"
+         "#ff6d67"
+         "#59f68d"
+         "#f3f89d"
+         "#c9a8fa"
+         "#ff92d0"
+         "#99ecfd"
+         "#c7c7c7"])
+  (setq xterm-color-names-bright
+        ["#676767"
+         "#ff6d67"
+         "#59f68d"
+         "#f3f89d"
+         "#c9a8fa"
+         "#ff92d0"
+         "#99ecfd"
+         "#feffff"])
+  :config
+  (add-hook 'shell-mode-hook
+            (lambda ()
+              (setq-local comint-output-filter-functions
+                    (remove 'ansi-color-process-output comint-output-filter-functions))
+              (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t))))
+
+;; (use-package evil-unimpaired
+;;   :ensure t
+;;   :pin melpa
+;;   :config
+;;   (evil-unimpaired-mode))
+
 (use-package shell
   :init
   (setq comint-prompt-read-only t)
+  (setq comint-scroll-show-maximum-output nil)
   :config
+  (define-key comint-mode-map [tab] 'company-complete)
+  (define-key comint-mode-map (kbd "TAB") 'company-complete)
+  (general-nmap :keymaps 'comint-mode-map "q" 'quit-window)
+  (general-imap :keymaps 'shell-mode-map "C-c" 'comint-interrupt-subjob)
+  (general-imap :keymaps 'shell-mode-map "C-n" 'evil-normal-state)
+  (add-hook 'comint-mode-hook
+            (lambda ()
+              (add-hook 'evil-insert-state-exit-hook 'company-abort nil t)
+              (setq-local company-active-map
+                          (let ((keymap (make-sparse-keymap)))
+                            (set-keymap-parent keymap company-active-map)
+                            (define-key keymap [tab] 'company-complete-selection)
+                            (define-key keymap (kbd "TAB") 'company-complete-selection)
+                            (define-key keymap [return] 'rockstar-company-shifted-return)
+                            (define-key keymap (kbd "RET") 'rockstar-company-shifted-return) keymap))))
   (add-hook 'shell-mode-hook
-           (lambda () (add-hook 'comint-input-filter-functions
+            (lambda ()
+              (add-hook 'comint-input-filter-functions
                                 'rockstar-shell-clear-listener nil t))))
 
 (when (memq window-system '(mac ns x))
@@ -103,6 +156,24 @@ indentation size."
     :pin melpa
     :config
     (exec-path-from-shell-initialize)))
+
+(use-package shackle
+  :ensure t
+  :pin melpa
+  :after (magit shell)
+  :init
+  (setq helm-display-function 'pop-to-buffer)
+  (setq swiper-helm-display-function 'pop-to-buffer)
+  (setq shackle-rules '((magit-status-mode :same t :inhibit-window-quit t)
+                        ;; (magit-log-mode :same t :inhibit-window-quit t)
+                        ;; (magit-diff-mode :same t :inhibit-window-quit t)
+                        ("*Help*" :same t :inhibit-window-quit t)
+                        ("\\`\\*helm.*?\\*\\'" :regexp t :align t :size 0.4)
+                        ("*swiper*" :regexp t :align t :size 0.4)
+                        ("*evil-registers*" :regexp t :align t :size 0.4)
+                        ("\\`\\*shell.*?\\*\\'" :regexp t :same t :inhibit-window-quit t)))
+  :config
+  (shackle-mode 1))
 
 (use-package smex
   :ensure t
@@ -117,17 +188,14 @@ indentation size."
 (use-package helm
   :diminish helm-mode
   :init
-  (setq helm-mode-handle-completion-in-region nil)
-  ;; :bind (("M-x" . helm-M-x)
-  ;;        ("C-x C-f" . helm-find-files)
-  ;;        ("C-x C-b" . helm-buffers-list)
-  ;;        ("C-h a" . helm-apropos))
+  (setq helm-mode-handle-completion-in-region t)
   :config
   (helm-mode t)
   (general-define-key :keymaps 'helm-map "<escape>" 'helm-keyboard-quit)
   (general-nmap "M-i" 'helm-imenu)
   (general-define-key "M-x" 'helm-M-x)
-  (general-define-key "C-h a" 'helm-apropos))
+  (general-define-key "C-h a" 'helm-apropos)
+  (general-define-key "C-x C-b" 'helm-buffers-list))
 
 (use-package helm-projectile
   :ensure t
@@ -148,7 +216,7 @@ indentation size."
   (setq helm-ag-base-command "rg --no-heading")
   (setq helm-follow-mode-persistent t)
   :config
-  (general-nmap "C-S" 'helm-do-ag-project-root))
+  (general-nmap "C-S-s" 'helm-do-ag-project-root))
 
 (use-package swiper-helm
   :ensure t
@@ -227,7 +295,7 @@ directory."
   :after all-the-icons
   :config
   (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
-  (general-nmap "C-B" 'rockstar-neotree-toggle)
+  (general-nmap "C-S-b" 'rockstar-neotree-toggle)
   (general-nmap :keymaps 'neotree-mode-map "<escape>" 'neotree-toggle)
   (add-to-list 'all-the-icons-icon-alist
                '("\\.tsx$" all-the-icons-fileicon "tsx" :height 1.0 :v-adjust -0.1 :face all-the-icons-cyan-alt)))
@@ -264,6 +332,7 @@ directory."
   (general-define-key :keymaps 'projectile-mode-map
                       "C-c p"
                       'projectile-command-map)
+  (general-nmap "C-S-p" 'projectile-run-shell)
   (projectile-mode 1))
 
 ;; (use-package whole-line-or-region
@@ -459,10 +528,15 @@ directory."
   :config
   (evil-mode 1)
   (evil-ex-define-cmd "sh[ell]" 'shell)
-  (general-nmap "M-j" #'evil-window-down)
-  (general-nmap "M-k" #'evil-window-up)
-  (general-nmap "M-h" #'evil-window-left)
-  (general-nmap "M-l" #'evil-window-right))
+  (general-nmap "M-s" 'evil-window-split)
+  (general-nmap "M-v" 'evil-window-vsplit)
+  (general-nmap "M-c" 'evil-window-delete)
+  (general-nmap "M-n" 'evil-window-new)
+  (general-nmap "M-o" 'delete-other-windows)
+  (general-nmap "M-j" 'evil-window-down)
+  (general-nmap "M-k" 'evil-window-up)
+  (general-nmap "M-h" 'evil-window-left)
+  (general-nmap "M-l" 'evil-window-right))
 
 (use-package evil-collection
   :ensure t
@@ -472,12 +546,13 @@ directory."
   (setq evil-collection-company-use-tng nil)
   ;; line-mode has some weird effects on how output works, I think we want to be
   ;; more conscious about using it
-  (setq evil-collection-term-sync-state-and-mode-p nil)
+  ;; (setq evil-collection-term-sync-state-and-mode-p nil)
   :config
   (evil-collection-init)
   ;; Still enter character mode on insert
   (add-hook 'term-mode-hook
             (lambda ()
+              (setq bidi-paragraph-direction 'left-to-right)
               (add-hook 'evil-insert-state-entry-hook
                         evil-collection-term-sync-state-function nil t)))
   (general-nmap :keymaps 'neotree-mode-map "<return>" 'neotree-enter-hide)
@@ -511,8 +586,10 @@ directory."
 
 (use-package magit
   :ensure t
+  :pin melpa
   :config
-  (general-define-key "C-c m" 'magit))
+  (general-nmap "C-S-g" 'magit-status)
+  (general-nmap "C-M-g" 'magit-file-popup))
 
 (use-package evil-magit
   :ensure t
@@ -637,8 +714,7 @@ directory."
   (global-set-key (kbd "C-'") 'avy-goto-char-timer)
   (global-set-key (kbd "M-g '") 'avy-goto-line)
   (avy-setup-default)
-  (global-set-key (kbd "C-c C-j") 'avy-resume)
-  (general-nmap "C-a" 'avy-goto-char-timer))
+  (global-set-key (kbd "C-c C-j") 'avy-resume))
 
 (use-package evil-easymotion
   :ensure t
@@ -656,11 +732,13 @@ directory."
   :init
   (setq eyebrowse-new-workspace t)
   :config
-  (general-nmap "C-1" 'eyebrowse-switch-to-window-config-1)
-  (general-nmap "C-2" 'eyebrowse-switch-to-window-config-2)
-  (general-nmap "C-3" 'eyebrowse-switch-to-window-config-3)
-  (general-nmap "C-4" 'eyebrowse-switch-to-window-config-4)
-  (general-nmap "C-5" 'eyebrowse-switch-to-window-config-5)
+  (general-nmap "M-1" 'eyebrowse-switch-to-window-config-1)
+  (general-nmap "M-2" 'eyebrowse-switch-to-window-config-2)
+  (general-nmap "M-3" 'eyebrowse-switch-to-window-config-3)
+  (general-nmap "M-4" 'eyebrowse-switch-to-window-config-4)
+  (general-nmap "M-5" 'eyebrowse-switch-to-window-config-5)
+  (general-nmap "M-[" 'eyebrowse-prev-window-config)
+  (general-nmap "M-]" 'eyebrowse-next-window-config)
   (eyebrowse-mode t))
 
 (use-package prettier-js
@@ -671,38 +749,6 @@ directory."
   (add-hook 'javascript-mode-hook 'prettier-js-mode)
   (add-hook 'typescript-mode-hook 'prettier-js-mode)
   (add-hook 'web-mode-hook 'prettier-js-mode))
-
-;; Reserved:
-;; t - tag
-;; r - refac
-;; . - auto-fix
-;; g - mode specific navigation ?
-;; c - commit ?
-;; h - special mode / hydra
-;; i - info
-;; u - occur
-;; e - edit ?
-(use-package general
-  :ensure t
-  :pin melpa
-  :after (projectile avy)
-  :config
-  (rockstar-define-leader "TAB" 'mode-line-other-buffer)
-  ;; (rockstar-define-leader "x" 'counsel-M-x)
-  ;; (rockstar-define-leader "/" 'swiper)
-  (rockstar-define-leader ":" 'eval-expression)
-  ;; (rockstar-define-leader "t" 'rockstar-neotree-toggle)
-  ;; (rockstar-define-leader "s" 'counsel-ag)
-  ;; (rockstar-define-leader "b" 'ivy-switch-buffer)
-  (rockstar-define-leader "d" 'dired)
-  (rockstar-define-leader "n" 'rename-buffer)
-  ;; (rockstar-define-leader "m" 'counsel-imenu)
-  ;; (rockstar-define-leader "p" 'counsel-projectile)
-  ;; (rockstar-define-leader "w" 'counsel-projectile-switch-project) ; "Work on"
-  ;; (rockstar-define-leader "f" 'counsel-find-file)
-  ;; (rockstar-define-leader "r" 'counsel-recentf)
-  (rockstar-define-leader "j" 'avy-goto-char-timer)
-  (rockstar-define-leader "a a" 'org-agenda))
 
 (use-package docker
   :ensure t
@@ -964,7 +1010,7 @@ directory."
  '(ns-use-srgb-colorspace t)
  '(package-selected-packages
    (quote
-    (smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (evil-unimpaired xterm-color shackle smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(powerline-default-separator (quote bar))
  '(safe-local-variable-values
    (quote
