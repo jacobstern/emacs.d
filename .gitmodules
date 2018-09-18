@@ -1,0 +1,3 @@
+[submodule "site-elisp/evil-unimpaired"]
+	path = site-elisp/evil-unimpaired
+	url = https://github.com/jacobstern/evil-unimpaired

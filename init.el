@@ -6,6 +6,9 @@
         ("melpa" . "http://melpa.org/packages/")
         ("marmalade" . "http://marmalade-repo.org/packages/")))
 
+(let ((default-directory  "~/.emacs.d/site-elisp/"))
+  (normal-top-level-add-subdirs-to-load-path))
+
 (eval-when-compile (require 'use-package))
 
 (require 'diminish)
@@ -34,6 +37,47 @@
 (setq enable-recursive-minibuffers t)
 (setq confirm-kill-processes nil)
 (setq confirm-kill-emacs 'y-or-n-p)
+
+(defun xah-next-user-buffer ()
+  "Switch to the next user buffer.
+“user buffer” is determined by `xah-user-buffer-q'.
+URL `http://ergoemacs.org/emacs/elisp_next_prev_user_buffer.html'
+Version 2016-06-19"
+  (interactive)
+  (next-buffer)
+  (let ((i 0))
+    (while (< i 20)
+      (if (not (xah-user-buffer-q))
+          (progn (next-buffer)
+                 (setq i (1+ i)))
+        (progn (setq i 100))))))
+
+(defun xah-previous-user-buffer ()
+  "Switch to the previous user buffer.
+“user buffer” is determined by `xah-user-buffer-q'.
+URL `http://ergoemacs.org/emacs/elisp_next_prev_user_buffer.html'
+Version 2016-06-19"
+  (interactive)
+  (previous-buffer)
+  (let ((i 0))
+    (while (< i 20)
+      (if (not (xah-user-buffer-q))
+          (progn (previous-buffer)
+                 (setq i (1+ i)))
+        (progn (setq i 100))))))
+
+(defun xah-user-buffer-q ()
+  "Return t if current buffer is a user buffer, else nil.
+Typically, if buffer name starts with *, it's not considered a user buffer.
+This function is used by buffer switching command and close buffer command, so that next buffer shown is a user buffer.
+You can override this function to get your idea of “user buffer”.
+version 2016-06-18"
+  (interactive)
+  (if (string-equal "*" (substring (buffer-name) 0 1))
+      nil
+    (if (string-equal major-mode "dired-mode")
+        nil
+      t)))
 
 (fset 'yes-or-no-p 'y-or-n-p)
 (global-auto-revert-mode t)
@@ -993,6 +1037,13 @@ directory."
   :pin melpa
   :config
   (add-to-list 'auto-mode-alist '("\.feature$" . feature-mode)))
+
+(use-package evil-unimpaired
+  :config
+  (evil-unimpaired-define-pair "q" '(flycheck-previous-error . flycheck-next-error))
+  (evil-unimpaired-define-pair "b" '(xah-previous-user-buffer . xah-next-user-buffer))
+  (evil-unimpaired-define-pair "a" '(evil-unimpaired-previous-file . evil-unimpaired-next-file))
+  (evil-unimpaired-mode))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
