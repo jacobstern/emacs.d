@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t -*-
+
 (package-initialize)
 
 (setq package-archives
@@ -30,7 +32,7 @@
 
 (general-imap "C-c" 'evil-normal-state)
 (general-imap :keymaps 'override "C-x" 'ignore)
-(general-imap :keymaps 'override "M-x" 'ignore)
+;; (general-imap :keymaps 'override "M-x" 'ignore)
 
 (setq ring-bell-function 'ignore)
 (setq backup-directory-alist `(("." . ,(concat user-emacs-directory "backups"))))
@@ -46,7 +48,7 @@ Version 2016-06-19"
   (interactive)
   (next-buffer)
   (let ((i 0))
-    (while (< i 20)
+    (while (< i 100)
       (if (not (xah-user-buffer-q))
           (progn (next-buffer)
                  (setq i (1+ i)))
@@ -60,7 +62,7 @@ Version 2016-06-19"
   (interactive)
   (previous-buffer)
   (let ((i 0))
-    (while (< i 20)
+    (while (< i 100)
       (if (not (xah-user-buffer-q))
           (progn (previous-buffer)
                  (setq i (1+ i)))
@@ -163,16 +165,19 @@ indentation size."
                     (remove 'ansi-color-process-output comint-output-filter-functions))
               (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t))))
 
-;; (use-package evil-unimpaired
-;;   :ensure t
-;;   :pin melpa
-;;   :config
-;;   (evil-unimpaired-mode))
-
-(use-package shell
+(use-package comint
+  :demand t
   :init
   (setq comint-prompt-read-only t)
   (setq comint-scroll-show-maximum-output nil)
+  :config
+  (add-hook 'comint-preoutput-filter-functions
+            (lambda (text)
+              (propertize text 'read-only t))))
+
+(use-package shell
+  :demand t
+  :init
   :config
   (define-key comint-mode-map [tab] 'company-complete)
   (define-key comint-mode-map (kbd "TAB") 'company-complete)
@@ -194,6 +199,12 @@ indentation size."
               (add-hook 'comint-input-filter-functions
                                 'rockstar-shell-clear-listener nil t))))
 
+(defvar rockstar-term-shell "/bin/bash")
+
+(defun rockstar-term ()
+  (interactive)
+  (projectile-run-term rockstar-term-shell))
+
 (when (memq window-system '(mac ns x))
   (use-package exec-path-from-shell
     :ensure t
@@ -211,10 +222,11 @@ indentation size."
   (setq shackle-rules '((magit-status-mode :same t :inhibit-window-quit t)
                         ;; (magit-log-mode :same t :inhibit-window-quit t)
                         ;; (magit-diff-mode :same t :inhibit-window-quit t)
+                        ;; (magit-process-mode :same t :inhibit-window-quit t)
                         ("*Help*" :same t :inhibit-window-quit t)
-                        ("\\`\\*helm.*?\\*\\'" :regexp t :align t :size 0.4)
-                        ("*swiper*" :regexp t :align t :size 0.4)
-                        ("*evil-registers*" :regexp t :align t :size 0.4)
+                        ("\\`\\*helm.*?\\*\\'" :regexp t :align t :size 0.33)
+                        ("*swiper*" :regexp t :align t :size 0.33)
+                        ("*evil-registers*" :regexp t :align t :size 0.33)
                         ("\\`\\*shell.*?\\*\\'" :regexp t :same t :inhibit-window-quit t)))
   :config
   (shackle-mode 1))
@@ -229,17 +241,90 @@ indentation size."
   :ensure t
   :pin melpa)
 
+(defun rockstar-fixup-file-command (file)
+  (let ((cmd (pop evil-ex-history)))
+    (push (concat cmd file) evil-ex-history)))
+
+(defun rockstar-helm-edit-action (file)
+  (evil-edit file)
+  (rockstar-fixup-file-command file))
+
+(defun rockstar-helm-edit ()
+  (interactive)
+  (let ((helm-find-files-actions
+         (cons '("Find file" . rockstar-helm-edit-action)
+               (cdr helm-find-files-actions))))
+    (helm-find-files nil)))
+
+(defun rockstar-helm-vsplit-action (file)
+  (evil-window-vsplit nil file)
+  (rockstar-fixup-file-command file))
+
+(defun rockstar-helm-vsplit ()
+  (interactive)
+  (let ((helm-find-files-actions
+         (cons '("Find file in vertical split" . rockstar-helm-vsplit-action)
+               (cdr helm-find-files-actions))))
+    (helm-find-files nil)))
+
+(defun rockstar-helm-split-action (file)
+  (evil-window-split nil file)
+  (rockstar-fixup-file-command file))
+
+(defun rockstar-helm-split ()
+  (interactive)
+  (let ((helm-find-files-actions
+         (cons '("Find file in split" . rockstar-helm-split-action)
+               (cdr helm-find-files-actions))))
+    (helm-find-files nil)))
+
+(defun spacemacs//helm-hide-minibuffer-maybe ()
+  "Hide minibuffer in Helm session if we use the header line as input field."
+  (when (with-helm-buffer helm-echo-input-in-header-line)
+    (let ((ov (make-overlay (point-min) (point-max) nil nil t)))
+      (overlay-put ov 'window (selected-window))
+      (overlay-put ov 'face
+                   (let ((bg-color (face-background 'default nil)))
+                     `(:background ,bg-color :foreground ,bg-color)))
+      (setq-local cursor-type nil))))
+
 (use-package helm
+  :after evil
   :diminish helm-mode
   :init
   (setq helm-mode-handle-completion-in-region t)
+  (setq helm-M-x-fuzzy-match t)
+  (setq helm-recentf-fuzzy-match t)
+  (setq helm-buffers-fuzzy-matching t)
+  (setq helm-echo-input-in-header-line t)
+  (setq helm-ff-file-name-history-use-recentf t)
   :config
-  (helm-mode t)
+  (require 'helm-config)
+  ;; https://tuhdo.github.io/helm-intro.html
+
+  (define-key helm-map (kbd "<tab>") 'helm-execute-persistent-action) ; rebind tab to run persistent action
+  (define-key helm-map (kbd "C-i") 'helm-execute-persistent-action) ; make TAB work in terminal
+  (define-key helm-map (kbd "C-z")  'helm-select-action) ; list actions using C-z
+
   (general-define-key :keymaps 'helm-map "<escape>" 'helm-keyboard-quit)
   (general-nmap "M-i" 'helm-imenu)
-  (general-define-key "M-x" 'helm-M-x)
-  (general-define-key "C-h a" 'helm-apropos)
-  (general-define-key "C-x C-b" 'helm-buffers-list))
+  (general-nmap "M-p" #'helm-show-kill-ring)
+  (global-set-key (kbd "C-x C-f") 'helm-find-files)
+  (general-define-key "M-x" #'helm-M-x)
+  (general-define-key "C-h a" #'helm-apropos)
+  (general-define-key "C-x b" #'helm-mini)
+  (evil-ex-define-cmd "buffers" #'helm-mini)
+  (define-key evil-ex-map "e " #'rockstar-helm-edit)
+  (define-key evil-ex-map "edit " #'rockstar-helm-edit)
+  (define-key evil-ex-map "vs " #'rockstar-helm-vsplit)
+  (define-key evil-ex-map "vsplit " #'rockstar-helm-vsplit)
+  (define-key evil-ex-map "sp " #'rockstar-helm-split)
+  (define-key evil-ex-map "split " #'rockstar-helm-split)
+
+  (helm-mode 1)
+
+  (add-hook 'helm-minibuffer-set-up-hook
+            'spacemacs//helm-hide-minibuffer-maybe))
 
 (use-package helm-projectile
   :ensure t
@@ -247,6 +332,7 @@ indentation size."
   :after (helm projectile)
   :init
   (setq helm-projectile-truncate-lines t)
+  (setq projectile-switch-project-action #'helm-projectile)
   :config
   (helm-projectile-on)
   (general-nmap "C-p" 'helm-projectile)
@@ -376,7 +462,7 @@ directory."
   (general-define-key :keymaps 'projectile-mode-map
                       "C-c p"
                       'projectile-command-map)
-  (general-nmap "C-S-p" 'projectile-run-shell)
+  (general-nmap "C-S-p" #'rockstar-term)
   (projectile-mode 1))
 
 ;; (use-package whole-line-or-region
@@ -485,6 +571,8 @@ directory."
   :after lsp-mode
   :config
   (add-hook 'lsp-mode-hook 'lsp-ui-mode)
+  (define-key lsp-ui-mode-map [remap xref-find-definitions] #'lsp-ui-peek-find-definitions)
+  (define-key lsp-ui-mode-map [remap xref-find-references] #'lsp-ui-peek-find-references)
   (general-nmap :keymaps 'lsp-ui-mode-map "<f2>" 'lsp-rename)
   (general-nmap :keymaps 'lsp-ui-mode-map "<f3>" 'lsp-format-buffer))
 
@@ -507,8 +595,7 @@ directory."
   (setq org-log-done t)
   (setq org-agenda-files (list "~/org/gcal.org" "~/org/planner.org"))
   :config
-  (add-hook 'org-agenda-mode-hook #'rockstar-org-gcal-fetch-silently)
-  (general-define-key :keymaps 'org-mode-map "<return>" #'org-meta-return))
+  (add-hook 'org-agenda-mode-hook #'rockstar-org-gcal-fetch-silently))
 
 (use-package winum
   :ensure t
@@ -571,12 +658,9 @@ directory."
   (setq evil-cross-lines t)
   :config
   (evil-mode 1)
-  (evil-ex-define-cmd "sh[ell]" 'shell)
   (general-nmap "M-s" 'evil-window-split)
   (general-nmap "M-v" 'evil-window-vsplit)
-  (general-nmap "M-c" 'evil-window-delete)
-  (general-nmap "M-n" 'evil-window-new)
-  (general-nmap "M-o" 'delete-other-windows)
+  (general-nmap "M-c" 'delete-window)
   (general-nmap "M-j" 'evil-window-down)
   (general-nmap "M-k" 'evil-window-up)
   (general-nmap "M-h" 'evil-window-left)
@@ -590,7 +674,7 @@ directory."
   (setq evil-collection-company-use-tng nil)
   ;; line-mode has some weird effects on how output works, I think we want to be
   ;; more conscious about using it
-  ;; (setq evil-collection-term-sync-state-and-mode-p nil)
+  (setq evil-collection-term-sync-state-and-mode-p nil)
   :config
   (evil-collection-init)
   ;; Still enter character mode on insert
@@ -632,6 +716,12 @@ directory."
   :ensure t
   :pin melpa
   :config
+  ;; These bindings for opening heading levels collide with my own config
+  (general-define-key :keymaps 'magit-status-mode-map "M-1" nil)
+  (general-define-key :keymaps 'magit-status-mode-map "M-2" nil)
+  (general-define-key :keymaps 'magit-status-mode-map "M-3" nil)
+  (general-define-key :keymaps 'magit-status-mode-map "M-4" nil)
+  (general-define-key :keymaps 'magit-status-mode-map "M-5" nil)
   (general-nmap "C-S-g" 'magit-status)
   (general-nmap "C-M-g" 'magit-file-popup))
 
@@ -659,9 +749,11 @@ directory."
   (add-hook 'evil-org-mode-hook
             (lambda ()
               (evil-org-set-key-theme)))
-  (general-nmap :keymaps 'evil-org-mode-map "gx" 'org-open-at-point)
-  (general-nmap :keymaps 'evil-org-mode-map "M-o" (evil-org-define-eol-command org-insert-heading))
-  (general-nmap :keymaps 'evil-org-mode-map "O" #'evil-org-open-above))
+  (general-nmap :keymaps 'evil-org-mode-map "gx" #'org-open-at-point))
+  ;; (general-nmap :keymaps 'evil-org-mode-map "C-M-o" (evil-org-define-eol-command org-insert-heading))
+  ;; (general-nmap :keymaps 'evil-org-mode-map "M-o" (evil-org-define-eol-command org-meta-return))
+  ;; (general-nmap :keymaps 'evil-org-mode-map "o" #'evil-open-below)
+  ;; (general-nmap :keymaps 'evil-org-mode-map "O" #'evil-org-open-above))
 
 (use-package restart-emacs
   :ensure t
@@ -952,23 +1044,16 @@ directory."
   :pin melpa
   :after (typescript-mode web-mode)
   :config
-  ;; Override this function to work with TSX files
-  ;; (defun lsp-typescript--language-id (buffer)
-  ;;   (let ((ext (file-name-extension (buffer-file-name buffer))))
-  ;;     (cond ((equal "ts" ext) "typescript")
-  ;;           ((equal "tsx" ext) "typescriptreact")
-  ;;           (t "javascript"))))
-  
-  ;; TODO: Investigate whether this workaround is necessary, also pin version to
+  ;; TODO: Pin version of this package to protect this workaround
   ;; https://github.com/emacs-lsp/lsp-javascript/commit/ab62826962887e82f0bc968817be4fc89a6953e4
-  ;; (defun lsp-javascript-typescript--render-string (str)
-  ;;   (condition-case nil
-  ;;       (with-temp-buffer
-  ;;         (delay-mode-hooks (web-mode))
-  ;;         (insert str)
-  ;;         (font-lock-ensure)
-  ;;         (buffer-string))
-  ;;     (error str)))
+  (defun lsp-javascript-typescript--render-string (str)
+    (condition-case nil
+        (with-temp-buffer
+          (delay-mode-hooks (web-mode))
+          (insert str)
+          (font-lock-ensure)
+          (buffer-string))
+      (error str)))
 
   (add-hook 'js-mode-hook #'lsp-javascript-typescript-enable)
   (add-hook 'js-mode-hook #'rockstar-fix-company-for-javascript-lsp)
