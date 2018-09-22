@@ -241,42 +241,51 @@ indentation size."
   :ensure t
   :pin melpa)
 
-(defun rockstar-fixup-file-command (file)
+(require 'subr-x)
+
+(defun rockstar-trim-last-ex-history-entry ()
   (let ((cmd (pop evil-ex-history)))
-    (push (concat cmd file) evil-ex-history)))
+    (push (string-trim cmd) evil-ex-history)))
+
+(defun rockstar-append-ex-command-target (arg)
+  (let ((cmd (pop evil-ex-history)))
+    (push (concat cmd arg) evil-ex-history)))
 
 (defun rockstar-helm-edit-action (file)
   (evil-edit file)
-  (rockstar-fixup-file-command file))
+  (rockstar-append-ex-command-target file))
 
 (defun rockstar-helm-edit ()
   (interactive)
   (let ((helm-find-files-actions
          (cons '("Find file" . rockstar-helm-edit-action)
                (cdr helm-find-files-actions))))
-    (helm-find-files nil)))
+    (helm-find-files nil)
+    (rockstar-trim-last-ex-history-entry)))
 
 (defun rockstar-helm-vsplit-action (file)
   (evil-window-vsplit nil file)
-  (rockstar-fixup-file-command file))
+  (rockstar-append-ex-command-target file))
 
 (defun rockstar-helm-vsplit ()
   (interactive)
   (let ((helm-find-files-actions
          (cons '("Find file in vertical split" . rockstar-helm-vsplit-action)
                (cdr helm-find-files-actions))))
-    (helm-find-files nil)))
+    (helm-find-files nil)
+    (rockstar-trim-last-ex-history-entry)))
 
 (defun rockstar-helm-split-action (file)
   (evil-window-split nil file)
-  (rockstar-fixup-file-command file))
+  (rockstar-append-ex-command-target file))
 
 (defun rockstar-helm-split ()
   (interactive)
   (let ((helm-find-files-actions
          (cons '("Find file in split" . rockstar-helm-split-action)
                (cdr helm-find-files-actions))))
-    (helm-find-files nil)))
+    (helm-find-files nil)
+    (rockstar-trim-last-ex-history-entry)))
 
 (defun spacemacs//helm-hide-minibuffer-maybe ()
   "Hide minibuffer in Helm session if we use the header line as input field."
@@ -302,9 +311,9 @@ indentation size."
   (require 'helm-config)
   ;; https://tuhdo.github.io/helm-intro.html
 
-  (define-key helm-map (kbd "<tab>") 'helm-execute-persistent-action) ; rebind tab to run persistent action
-  (define-key helm-map (kbd "C-i") 'helm-execute-persistent-action) ; make TAB work in terminal
-  (define-key helm-map (kbd "C-z")  'helm-select-action) ; list actions using C-z
+  (define-key helm-map (kbd "<tab>") #'helm-execute-persistent-action) ; rebind tab to run persistent action
+  (define-key helm-map (kbd "C-i") #'helm-execute-persistent-action) ; make TAB work in terminal
+  (define-key helm-map (kbd "C-z")  #'helm-select-action) ; list actions using C-z
 
   (general-define-key :keymaps 'helm-map "<escape>" 'helm-keyboard-quit)
   (general-nmap "M-i" 'helm-imenu)
@@ -314,6 +323,7 @@ indentation size."
   (general-define-key "C-h a" #'helm-apropos)
   (general-define-key "C-x b" #'helm-mini)
   (evil-ex-define-cmd "buffers" #'helm-mini)
+  ;; TODO: Implement bd[elete]
   (define-key evil-ex-map "e " #'rockstar-helm-edit)
   (define-key evil-ex-map "edit " #'rockstar-helm-edit)
   (define-key evil-ex-map "vs " #'rockstar-helm-vsplit)
@@ -462,7 +472,7 @@ directory."
   (general-define-key :keymaps 'projectile-mode-map
                       "C-c p"
                       'projectile-command-map)
-  (general-nmap "C-S-p" #'rockstar-term)
+  (general-nmap "C-S-p" #'projectile-run-shell)
   (projectile-mode 1))
 
 ;; (use-package whole-line-or-region
@@ -496,9 +506,10 @@ directory."
 
 (use-package company
   :diminish company-mode
+  :init
+  (setq company-minimum-prefix-length 1)
   :config
   (global-company-mode 1)
-  (general-imap "M-/" 'company-complete)
   (general-define-key :keymaps 'company-active-map
                       "<S-return>"
                       'rockstar-company-shifted-return)
@@ -540,9 +551,12 @@ directory."
 (use-package flycheck
   :ensure t
   :pin melpa-stable
+  :after evil
   :config
   (add-hook 'after-init-hook 'global-flycheck-mode)
-  (setq flycheck-display-errors-function #'flycheck-display-error-messages-unless-error-list))
+  (setq flycheck-display-errors-function #'flycheck-display-error-messages-unless-error-list)
+  (general-nmap :keymaps 'flycheck-mode-map "[q" 'flycheck-previous-error)
+  (general-nmap :keymaps 'flycheck-mode-map "]q" 'flycheck-next-error))
 
 ;; (use-package intero
 ;;   :after (haskell-mode flycheck)
@@ -555,15 +569,14 @@ directory."
   :ensure t
   :pin melpa)
 
-;; (use-package company-lsp
-;;   :ensure t
-;;   :pin melpa
-;;   :after company
-;;   :init
-;;   (setq company-lsp-async nil)
-;;   (setq company-lsp-enable-snippet t)
-;;   :config
-;;   (push 'company-lsp company-backends))
+(use-package company-lsp
+  :ensure t
+  :pin melpa
+  :after company
+  :init
+  ;; (setq company-lsp-enable-snippet t)
+  :config
+  (push 'company-lsp company-backends))
 
 (use-package lsp-ui
   :ensure t
@@ -658,6 +671,7 @@ directory."
   (setq evil-cross-lines t)
   :config
   (evil-mode 1)
+  (add-hook 'git-commit-mode-hook #'evil-insert-state)
   (general-nmap "M-s" 'evil-window-split)
   (general-nmap "M-v" 'evil-window-vsplit)
   (general-nmap "M-c" 'delete-window)
@@ -692,6 +706,9 @@ directory."
   (general-def 'normal term-mode-map
     [remap undo-tree-undo] #'ignore
     [remap undo-tree-redo] #'ignore)
+  (general-imap :keymaps 'term-mode-map "C-c" 'term-kill-subjob)
+  (general-nmap :keymaps 'term-mode-map "q" 'quit-window)
+
   ;; wgrep
   ;; Unbind these until I decide how I want to do this
   (general-define-key :keymaps 'wgrep-mode-map "ZQ" nil)
@@ -722,6 +739,11 @@ directory."
   (general-define-key :keymaps 'magit-status-mode-map "M-3" nil)
   (general-define-key :keymaps 'magit-status-mode-map "M-4" nil)
   (general-define-key :keymaps 'magit-status-mode-map "M-5" nil)
+  (general-define-key :keymaps 'magit-diff-mode-map "M-1" nil)
+  (general-define-key :keymaps 'magit-diff-mode-map "M-2" nil)
+  (general-define-key :keymaps 'magit-diff-mode-map "M-3" nil)
+  (general-define-key :keymaps 'magit-diff-mode-map "M-4" nil)
+  (general-define-key :keymaps 'magit-diff-mode-map "M-5" nil)
   (general-nmap "C-S-g" 'magit-status)
   (general-nmap "C-M-g" 'magit-file-popup))
 
@@ -1055,10 +1077,7 @@ directory."
           (buffer-string))
       (error str)))
 
-  (add-hook 'js-mode-hook #'lsp-javascript-typescript-enable)
-  (add-hook 'js-mode-hook #'rockstar-fix-company-for-javascript-lsp)
-  (add-hook 'typescript-mode-hook #'lsp-javascript-typescript-enable)
-  (add-hook 'typescript-mode-hook #'rockstar-fix-company-for-javascript-lsp)
+  (add-hook 'web-mode-hook #'rockstar-fix-company-for-javascript-lsp)
   (add-hook 'web-mode-hook #'lsp-javascript-typescript-enable)
   (add-hook 'web-mode-hook #'rockstar-setup-typescript))
 
@@ -1123,12 +1142,17 @@ directory."
   :config
   (add-to-list 'auto-mode-alist '("\.feature$" . feature-mode)))
 
-(use-package evil-unimpaired
-  :config
-  (evil-unimpaired-define-pair "q" '(flycheck-previous-error . flycheck-next-error))
-  (evil-unimpaired-define-pair "b" '(xah-previous-user-buffer . xah-next-user-buffer))
-  (evil-unimpaired-define-pair "a" '(evil-unimpaired-previous-file . evil-unimpaired-next-file))
-  (evil-unimpaired-mode))
+;; (use-package evil-unimpaired
+;;   :config
+;;   (evil-unimpaired-define-pair "q" '(flycheck-previous-error . flycheck-next-error))
+;;   (evil-unimpaired-define-pair "b" '(xah-previous-user-buffer . xah-next-user-buffer))
+;;   (evil-unimpaired-define-pair "a" '(evil-unimpaired-previous-file . evil-unimpaired-next-file))
+;;   (define-minor-mode local-evil-unimpaired-mode
+;;     "Local minor mode to provide convient pairs of bindings"
+;;     :keymap evil-unimpaired-mode-map
+;;     :global nil
+;;     (evil-normalize-keymaps))
+;;   (add-hook 'prog-mode-hook #'local-evil-unimpaired-mode))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
