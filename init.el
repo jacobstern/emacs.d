@@ -30,15 +30,24 @@
 
 (general-define-key "C-c o" 'mode-line-other-buffer)
 
-(general-imap "C-c" 'evil-normal-state)
+(general-imap "C-c" 'ignore)
 (general-imap :keymaps 'override "C-x" 'ignore)
-;; (general-imap :keymaps 'override "M-x" 'ignore)
+
+(general-define-key :keymaps 'minibuffer-local-map "<escape>" 'minibuffer-keyboard-quit)
 
 (setq ring-bell-function 'ignore)
 (setq backup-directory-alist `(("." . ,(concat user-emacs-directory "backups"))))
 (setq enable-recursive-minibuffers t)
 (setq confirm-kill-processes nil)
 (setq confirm-kill-emacs 'y-or-n-p)
+
+(defun rockstar-tag-buffer ()
+  "Rename buffer using a specific tagging convention."
+  (interactive)
+  (let ((tag (read-from-minibuffer "Rename buffer with tag: ")))
+    (rename-buffer (concat (buffer-name) " [" tag "]"))))
+
+(general-nmap "C-M-r" 'rockstar-tag-buffer)
 
 (defun xah-next-user-buffer ()
   "Switch to the next user buffer.
@@ -135,35 +144,38 @@ indentation size."
   (when (string-match-p rockstar-shell-clear-regex (string-trim input))
     (add-hook 'comint-preoutput-filter-functions 'rockstar-shell-clear-next-output)))
 
-(use-package xterm-color
-  :ensure t
-  :pin melpa
-  :after shell
-  :init
-  (setq xterm-color-names
-        ["#000000"
-         "#ff6d67"
-         "#59f68d"
-         "#f3f89d"
-         "#c9a8fa"
-         "#ff92d0"
-         "#99ecfd"
-         "#c7c7c7"])
-  (setq xterm-color-names-bright
-        ["#676767"
-         "#ff6d67"
-         "#59f68d"
-         "#f3f89d"
-         "#c9a8fa"
-         "#ff92d0"
-         "#99ecfd"
-         "#feffff"])
-  :config
-  (add-hook 'shell-mode-hook
-            (lambda ()
-              (setq-local comint-output-filter-functions
-                    (remove 'ansi-color-process-output comint-output-filter-functions))
-              (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t))))
+;; (use-package xterm-color
+  ;; :ensure t
+  ;; :pin melpa
+  ;; :after shell
+  ;; :init
+  ;; ;; (setq xterm-color-names
+  ;; ;;       ["#000000"
+  ;; ;;        "#ff6d67"
+  ;; ;;        "#59f68d"
+  ;; ;;        "#f3f89d"
+  ;; ;;        "#c9a8fa"
+  ;; ;;        "#ff92d0"
+  ;; ;;        "#99ecfd"
+  ;; ;;        "#c7c7c7"])
+  ;; ;; (setq xterm-color-names-bright
+  ;; ;;       ["#676767"
+  ;; ;;        "#ff6d67"
+  ;; ;;        "#59f68d"
+  ;; ;;        "#f3f89d"
+  ;; ;;        "#c9a8fa"
+  ;; ;;        "#ff92d0"
+  ;; ;;        "#99ecfd"
+  ;; ;;        "#feffff"])
+  ;; :config
+  ;; (add-hook 'shell-mode-hook
+  ;;           (lambda ()
+  ;;             (setq-local comint-output-filter-functions
+  ;;                   (remove 'ansi-color-process-output comint-output-filter-functions))
+  ;;             (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t))))
+
+(defun rockstar-propertize-read-only-hook (text)
+  (propertize text 'read-only t))
 
 (use-package comint
   :demand t
@@ -171,9 +183,7 @@ indentation size."
   (setq comint-prompt-read-only t)
   (setq comint-scroll-show-maximum-output nil)
   :config
-  (add-hook 'comint-preoutput-filter-functions
-            (lambda (text)
-              (propertize text 'read-only t))))
+  (add-hook 'comint-preoutput-filter-functions 'rockstar-propertize-read-only-hook))
 
 (use-package shell
   :demand t
@@ -305,8 +315,9 @@ indentation size."
   (setq helm-M-x-fuzzy-match t)
   (setq helm-recentf-fuzzy-match t)
   (setq helm-buffers-fuzzy-matching t)
-  (setq helm-echo-input-in-header-line t)
+  (setq helm-echo-input-in-header-line nil)
   (setq helm-ff-file-name-history-use-recentf t)
+  (setq helm-buffer-max-length 50)
   :config
   (require 'helm-config)
   ;; https://tuhdo.github.io/helm-intro.html
@@ -346,6 +357,7 @@ indentation size."
   :config
   (helm-projectile-on)
   (general-nmap "C-p" 'helm-projectile)
+  (general-nmap "C-M-p" 'helm-projectile-switch-project)
   (general-nmap "C-n" 'ignore))
 
 (use-package helm-ag
@@ -629,11 +641,11 @@ directory."
   ;; (general-define-key :keymaps 'evil-window-map "9" 'winum-select-window-9))
   )
 
-(use-package bash-completion
-  :ensure t
-  :pin melpa
-  :config
-  (bash-completion-setup))
+;; (use-package bash-completion
+;;   :ensure t
+;;   :pin melpa
+;;   :config
+;;   (bash-completion-setup))
 
 (use-package org-gcal
   :init
@@ -744,6 +756,7 @@ directory."
   (general-define-key :keymaps 'magit-diff-mode-map "M-3" nil)
   (general-define-key :keymaps 'magit-diff-mode-map "M-4" nil)
   (general-define-key :keymaps 'magit-diff-mode-map "M-5" nil)
+  (general-define-key :keymaps 'magit-blame-mode-map "<escape>" 'magit-blame-quit)
   (general-nmap "C-S-g" 'magit-status)
   (general-nmap "C-M-g" 'magit-file-popup))
 
@@ -1079,7 +1092,10 @@ directory."
 
   (add-hook 'web-mode-hook #'rockstar-fix-company-for-javascript-lsp)
   (add-hook 'web-mode-hook #'lsp-javascript-typescript-enable)
-  (add-hook 'web-mode-hook #'rockstar-setup-typescript))
+  (add-hook 'web-mode-hook #'rockstar-setup-typescript)
+  (add-hook 'typescript-mode-hook #'rockstar-fix-company-for-javascript-lsp)
+  (add-hook 'typescript-mode-hook #'lsp-javascript-typescript-enable)
+  (add-hook 'typescript-mode-hook #'rockstar-setup-typescript))
 
 (use-package yasnippet
   :diminish yas-minor-mode
@@ -1142,6 +1158,33 @@ directory."
   :config
   (add-to-list 'auto-mode-alist '("\.feature$" . feature-mode)))
 
+;; (use-package solarized-theme
+;;   :ensure t
+;;   :pin melpa
+;;   :init
+;;   ;; make the fringe stand out from the background
+;;   (setq solarized-distinct-fringe-background nil)
+
+;;   ;; Don't change the font for some headings and titles
+;;   (setq solarized-use-variable-pitch nil)
+
+;;   ;; make the modeline high contrast
+;;   (setq solarized-high-contrast-mode-line t)
+
+;;   ;; Use less bolding
+;;   (setq solarized-use-less-bold t)
+
+;;   ;; Use more italics
+;;   (setq solarized-use-more-italic t)
+
+;;   ;; Use less colors for indicators such as git:gutter, flycheck and similar
+;;   (setq solarized-emphasize-indicators nil)
+
+;;   (setq x-underline-at-descent-line t)
+;;   :config
+;;   (require 'solarized-light-theme)
+;;   (load-theme 'solarized-light))
+
 ;; (use-package evil-unimpaired
 ;;   :config
 ;;   (evil-unimpaired-define-pair "q" '(flycheck-previous-error . flycheck-next-error))
@@ -1159,18 +1202,58 @@ directory."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(ansi-color-names-vector
+   ["#eee8d5" "#dc322f" "#859900" "#b58900" "#268bd2" "#d33682" "#2aa198" "#839496"])
  '(column-number-mode t)
- '(custom-enabled-themes (quote (dracula)))
+ '(compilation-message-face (quote default))
+ '(cua-global-mark-cursor-color "#2aa198")
+ '(cua-normal-cursor-color "#657b83")
+ '(cua-overwrite-cursor-color "#b58900")
+ '(cua-read-only-cursor-color "#859900")
+ '(custom-enabled-themes (quote (monokai)))
  '(custom-safe-themes
    (quote
-    ("3c83b3676d796422704082049fc38b6966bcad960f896669dfc21a7a37a748fa" "aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
+    ("bd7b7c5df1174796deefce5debc2d976b264585d51852c962362be83932873d9" "a8245b7cc985a0610d71f9852e9f2767ad1b852c2bdea6f4aadc12cce9c4d6d0" "8aebf25556399b58091e533e455dd50a6a9cba958cc4ebb0aab175863c25b9a4" "d677ef584c6dfc0697901a44b885cc18e206f05114c8a3b7fde674fce6180879" "3c83b3676d796422704082049fc38b6966bcad960f896669dfc21a7a37a748fa" "aaffceb9b0f539b6ad6becb8e96a04f2140c8faa1de8039a343a4f1e009174fb" default)))
  '(dired-sidebar-theme (quote icons))
+ '(fci-rule-color "#eee8d5")
+ '(highlight-changes-colors (quote ("#d33682" "#6c71c4")))
+ '(highlight-symbol-colors
+   (--map
+    (solarized-color-blend it "#fdf6e3" 0.25)
+    (quote
+     ("#b58900" "#2aa198" "#dc322f" "#6c71c4" "#859900" "#cb4b16" "#268bd2"))))
+ '(highlight-symbol-foreground-color "#586e75")
+ '(highlight-tail-colors
+   (quote
+    (("#eee8d5" . 0)
+     ("#B4C342" . 20)
+     ("#69CABF" . 30)
+     ("#69B7F0" . 50)
+     ("#DEB542" . 60)
+     ("#F2804F" . 70)
+     ("#F771AC" . 85)
+     ("#eee8d5" . 100))))
+ '(hl-bg-colors
+   (quote
+    ("#DEB542" "#F2804F" "#FF6E64" "#F771AC" "#9EA0E5" "#69B7F0" "#69CABF" "#B4C342")))
+ '(hl-fg-colors
+   (quote
+    ("#fdf6e3" "#fdf6e3" "#fdf6e3" "#fdf6e3" "#fdf6e3" "#fdf6e3" "#fdf6e3" "#fdf6e3")))
+ '(hl-paren-colors (quote ("#2aa198" "#b58900" "#268bd2" "#6c71c4" "#859900")))
  '(horizontal-scroll-bar-mode nil)
+ '(lsp-ui-sideline-update-mode (quote line))
+ '(magit-diff-use-overlays nil)
  '(neo-theme (quote icons))
+ '(nrepl-message-colors
+   (quote
+    ("#dc322f" "#cb4b16" "#b58900" "#546E00" "#B4C342" "#00629D" "#2aa198" "#d33682" "#6c71c4")))
  '(ns-use-srgb-colorspace t)
+ '(org-export-backends (quote (ascii html icalendar latex md odt)))
  '(package-selected-packages
    (quote
-    (evil-unimpaired xterm-color shackle smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (monokai-theme solarized-theme evil-unimpaired xterm-color shackle smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+ '(pos-tip-background-color "#eee8d5")
+ '(pos-tip-foreground-color "#586e75")
  '(powerline-default-separator (quote bar))
  '(safe-local-variable-values
    (quote
@@ -1178,28 +1261,50 @@ directory."
  '(save-place-mode t)
  '(scroll-bar-mode nil)
  '(sentence-end-double-space nil)
+ '(smartrep-mode-line-active-bg (solarized-color-blend "#859900" "#eee8d5" 0.2))
  '(spaceline-helm-mode t)
+ '(term-default-bg-color "#fdf6e3")
+ '(term-default-fg-color "#657b83")
  '(tool-bar-mode nil)
+ '(vc-annotate-background nil)
+ '(vc-annotate-background-mode nil)
+ '(vc-annotate-color-map
+   (quote
+    ((20 . "#dc322f")
+     (40 . "#c9485ddd1797")
+     (60 . "#bf7e73b30bcb")
+     (80 . "#b58900")
+     (100 . "#a5a58ee30000")
+     (120 . "#9d9d91910000")
+     (140 . "#9595943e0000")
+     (160 . "#8d8d96eb0000")
+     (180 . "#859900")
+     (200 . "#67119c4632dd")
+     (220 . "#57d79d9d4c4c")
+     (240 . "#489d9ef365ba")
+     (260 . "#3963a04a7f29")
+     (280 . "#2aa198")
+     (300 . "#288e98cbafe2")
+     (320 . "#27c19460bb87")
+     (340 . "#26f38ff5c72c")
+     (360 . "#268bd2"))))
+ '(vc-annotate-very-old-color nil)
+ '(weechat-color-list
+   (quote
+    (unspecified "#fdf6e3" "#eee8d5" "#990A1B" "#dc322f" "#546E00" "#859900" "#7B6000" "#b58900" "#00629D" "#268bd2" "#93115C" "#d33682" "#00736F" "#2aa198" "#657b83" "#839496")))
  '(whitespace-style
    (quote
-    (face trailing tabs lines empty indentation::tab indentation::space indentation space-after-tab space-before-tab space-mark tab-mark newline-mark))))
+    (face trailing tabs lines empty indentation::tab indentation::space indentation space-after-tab space-before-tab space-mark tab-mark newline-mark)))
+ '(xterm-color-names
+   ["#eee8d5" "#dc322f" "#859900" "#b58900" "#268bd2" "#d33682" "#2aa198" "#073642"])
+ '(xterm-color-names-bright
+   ["#fdf6e3" "#cb4b16" "#93a1a1" "#839496" "#657b83" "#6c71c4" "#586e75" "#002b36"]))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro"))))
- '(anzu-mode-line ((t (:inherit default-face))))
- '(dashboard-banner-logo-title-face ((t (:inherit default :foreground "#ff79c6" :weight bold))))
- '(dashboard-heading-face ((t (:inherit org-level-2))))
- '(neo-banner-face ((t (:foreground "#ff79c6" :weight bold))))
- '(neo-dir-link-face ((t (:foreground "#8be9fd"))))
- '(neo-expand-btn-face ((t (:foreground "#f8f8f2"))))
- '(neo-file-link-face ((t (:foreground "#f8f8f2"))))
- '(neo-header-face ((t (:foreground "#f8f8f2"))))
- '(neo-root-dir-face ((t (:foreground "#ff79c6" :weight bold))))
- '(powerline-active1 ((t (:background "#a063f6" :foreground "#f8f8f2"))))
- '(powerline-active2 ((t (:background "#a063f6" :foreground "#f8f8f2")))))
+ '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro")))))
 
 ;; Local Variables:
 ;; eval: (flycheck-mode -1)
