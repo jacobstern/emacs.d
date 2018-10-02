@@ -13,15 +13,13 @@
 
 (eval-when-compile (require 'use-package))
 
-(require 'diminish)
-
-(load (expand-file-name "secret" user-emacs-directory))
+(require 'delight)
 
 (require 'general)
 
-(general-evil-setup)
+(load (expand-file-name "secret" user-emacs-directory))
 
-(general-create-definer rockstar-define-leader :prefix "SPC" :keymaps 'normal)
+(general-evil-setup)
 
 (defun rockstar-whole-line-or-region-indent (prefix)
   "Indent region or PREFIX whole lines."
@@ -40,6 +38,7 @@
 (setq enable-recursive-minibuffers t)
 (setq confirm-kill-processes nil)
 (setq confirm-kill-emacs 'y-or-n-p)
+(setq enable-local-variables :safe)
 
 (defun rockstar-tag-buffer ()
   "Rename buffer using a specific tagging convention."
@@ -84,7 +83,8 @@ This function is used by buffer switching command and close buffer command, so t
 You can override this function to get your idea of “user buffer”.
 version 2016-06-18"
   (interactive)
-  (if (string-equal "*" (substring (buffer-name) 0 1))
+  (if (or (string-prefix-p "*" (buffer-name))
+          (string-prefix-p "magit" (buffer-name)))
       nil
     (if (string-equal major-mode "dired-mode")
         nil
@@ -98,12 +98,16 @@ version 2016-06-18"
 
 (setq ediff-window-setup-function 'ediff-setup-windows-plain)
 
-;; (setq ns-control-modifier 'meta)
-;; (setq ns-option-modifier 'control)
-
-(add-hook 'prog-mode-hook 'display-line-numbers-mode)
+(add-hook 'text-mode-hook #'display-line-numbers-mode)
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (menu-bar-mode -1)
+
+(defun rockstar-insert-tab ()
+  "Inserts a number of spaces equal to evil-shift-width."
+  (interactive)
+  (insert-char 32 evil-shift-width))
+
 
 (defmacro rockstar-init-mode-indent (variable &rest extras-to-set)
   "Create a function that initializes a mode with a certain
@@ -230,9 +234,9 @@ indentation size."
   (setq helm-display-function 'pop-to-buffer)
   (setq swiper-helm-display-function 'pop-to-buffer)
   (setq shackle-rules '((magit-status-mode :same t :inhibit-window-quit t)
-                        ;; (magit-log-mode :same t :inhibit-window-quit t)
-                        ;; (magit-diff-mode :same t :inhibit-window-quit t)
-                        ;; (magit-process-mode :same t :inhibit-window-quit t)
+                        (magit-log-mode :same t :inhibit-window-quit t)
+                        (compilation-mode :same t :inhibit-window-quit t)
+                        (haskell-compilation-mode :same t :inhibit-window-quit t)
                         ("*Help*" :same t :inhibit-window-quit t)
                         ("\\`\\*helm.*?\\*\\'" :regexp t :align t :size 0.33)
                         ("*swiper*" :regexp t :align t :size 0.33)
@@ -297,19 +301,37 @@ indentation size."
     (helm-find-files nil)
     (rockstar-trim-last-ex-history-entry)))
 
-(defun spacemacs//helm-hide-minibuffer-maybe ()
-  "Hide minibuffer in Helm session if we use the header line as input field."
-  (when (with-helm-buffer helm-echo-input-in-header-line)
-    (let ((ov (make-overlay (point-min) (point-max) nil nil t)))
-      (overlay-put ov 'window (selected-window))
-      (overlay-put ov 'face
-                   (let ((bg-color (face-background 'default nil)))
-                     `(:background ,bg-color :foreground ,bg-color)))
-      (setq-local cursor-type nil))))
+(defun rockstar-helm-buffer-action (buffer-or-buffers)
+  (let ((buffer (if (listp buffer-or-buffers)
+                    (car buffer-or-buffers) buffer-or-buffers)))
+    (evil-buffer buffer)
+    (rockstar-append-ex-command-target (buffer-name buffer))))
+
+(defun rockstar-helm-buffer ()
+  (interactive)
+  (let ((helm-type-buffer-actions
+         (cons '("Switch to buffer" . rockstar-helm-buffer-action)
+               (cdr helm-type-buffer-actions))))
+    (helm-buffers-list)
+    (rockstar-trim-last-ex-history-entry)))
+
+(defun rockstar-helm-delete-buffer-action (buffer-or-buffers)
+  (let ((buffer (if (listp buffer-or-buffers)
+                    (car buffer-or-buffers) buffer-or-buffers)))
+    (evil-delete-buffer buffer)
+    (rockstar-append-ex-command-target (buffer-name buffer))))
+
+(defun rockstar-helm-delete-buffer ()
+  (interactive)
+  (let ((helm-type-buffer-actions
+         (cons '("Delete buffer" . rockstar-helm-delete-buffer-action)
+               (cdr helm-type-buffer-actions))))
+    (helm-buffers-list)
+    (rockstar-trim-last-ex-history-entry)))
 
 (use-package helm
   :after evil
-  :diminish helm-mode
+  :delight helm-mode
   :init
   (setq helm-mode-handle-completion-in-region t)
   (setq helm-M-x-fuzzy-match t)
@@ -333,14 +355,19 @@ indentation size."
   (general-define-key "M-x" #'helm-M-x)
   (general-define-key "C-h a" #'helm-apropos)
   (general-define-key "C-x b" #'helm-mini)
+
   (evil-ex-define-cmd "buffers" #'helm-mini)
-  ;; TODO: Implement bd[elete]
+
   (define-key evil-ex-map "e " #'rockstar-helm-edit)
   (define-key evil-ex-map "edit " #'rockstar-helm-edit)
   (define-key evil-ex-map "vs " #'rockstar-helm-vsplit)
   (define-key evil-ex-map "vsplit " #'rockstar-helm-vsplit)
   (define-key evil-ex-map "sp " #'rockstar-helm-split)
   (define-key evil-ex-map "split " #'rockstar-helm-split)
+  (define-key evil-ex-map "b " #'rockstar-helm-buffer)
+  (define-key evil-ex-map "buffer " #'rockstar-helm-buffer)
+  (define-key evil-ex-map "bd " #'rockstar-helm-delete-buffer)
+  (define-key evil-ex-map "bdelete " #'rockstar-helm-delete-buffer)
 
   (helm-mode 1)
 
@@ -365,8 +392,8 @@ indentation size."
   :pin melpa
   :after helm
   :init
-  (setq helm-ag-base-command "rg --no-heading")
-  (setq helm-follow-mode-persistent t)
+  ;; (setq helm-ag-base-command "rg --no-heading")
+  ;; (setq helm-follow-mode-persistent t)
   :config
   (general-nmap "C-S-s" 'helm-do-ag-project-root))
 
@@ -375,7 +402,8 @@ indentation size."
   :pin melpa
   :after helm
   :config
-  (general-nmap "C-/" 'swiper-helm))
+  (general-nmap "C-/" 'swiper-helm)
+  (general-nmap "C-M-/" 'swiper-helm-from-isearch))
 
 (use-package flx
   :ensure t
@@ -385,7 +413,7 @@ indentation size."
 ;;   :ensure t
 ;;   :pin melpa
 ;;   :after (smex hydra flx)
-;;   :diminish ivy-mode
+;;   :delight ivy-mode
 ;;   :init
 ;;   (setq ivy-use-virtual-buffers t)
 ;;   (setq ivy-initial-inputs-alist nil)
@@ -414,7 +442,7 @@ indentation size."
 ;;   :ensure t
 ;;   :pin melpa
 ;;   :after ivy
-;;   :diminish counsel-mode
+;;   :delight counsel-mode
 ;;   :config
 ;;   (counsel-mode 1)
 ;;   (general-define-key "C-c r" 'counsel-recentf))
@@ -476,9 +504,7 @@ directory."
 (use-package projectile
   :ensure t
   :pin melpa
-  ;; :after ivy
-  :init
-  ;; (setq projectile-completion-system 'ivy)
+  :delight
   :config
   (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
   (general-define-key :keymaps 'projectile-mode-map
@@ -506,7 +532,7 @@ directory."
 ;;   (nyan-mode 1))
 
 (use-package undo-tree
-  :diminish undo-tree-mode
+  :delight undo-tree-mode
   :config
   (global-undo-tree-mode))
 
@@ -517,7 +543,7 @@ directory."
   (execute-kbd-macro (kbd "<return>")))
 
 (use-package company
-  :diminish company-mode
+  :delight company-mode
   :init
   (setq company-minimum-prefix-length 1)
   :config
@@ -595,7 +621,8 @@ directory."
   :pin melpa
   :after lsp-mode
   :config
-  (add-hook 'lsp-mode-hook 'lsp-ui-mode)
+  (add-hook 'lsp-mode-hook #'lsp-ui-mode)
+  (add-hook 'lsp-ui-mode-hook (lambda () (eldoc-mode 0)))
   (define-key lsp-ui-mode-map [remap xref-find-definitions] #'lsp-ui-peek-find-definitions)
   (define-key lsp-ui-mode-map [remap xref-find-references] #'lsp-ui-peek-find-references)
   (general-nmap :keymaps 'lsp-ui-mode-map "<f2>" 'lsp-rename)
@@ -607,7 +634,12 @@ directory."
   :after (lsp-mode lsp-ui)
   :init
   (setq lsp-haskell-process-path-hie "~/.local/bin/hie-wrapper")
+  (setq haskell-compile-cabal-build-command "stack build")
   :config
+  ;; TODO: Correct way to do this?
+  (general-nmap 'haskell-mode-map "C-S-c" 'haskell-compile)
+  (general-nmap 'haskell-cabal-mode-map "C-S-c" 'haskell-compile)
+  (add-hook 'haskell-mode-hook (rockstar-add-word-syntax-entry ?_))
   (add-hook 'haskell-mode-hook 'lsp-haskell-enable)
   (add-hook 'haskell-mode-hook 'flycheck-mode)
   (add-hook 'haskell-mode-hook (rockstar-init-mode-indent 2)))
@@ -684,13 +716,24 @@ directory."
   :config
   (evil-mode 1)
   (add-hook 'git-commit-mode-hook #'evil-insert-state)
+  (general-imap :keymaps 'override "TAB" 'rockstar-insert-tab)
   (general-nmap "M-s" 'evil-window-split)
   (general-nmap "M-v" 'evil-window-vsplit)
   (general-nmap "M-c" 'delete-window)
+  (general-nmap "M-o" 'delete-other-windows)
+  (general-nmap "M-=" 'balance-windows)
   (general-nmap "M-j" 'evil-window-down)
   (general-nmap "M-k" 'evil-window-up)
   (general-nmap "M-h" 'evil-window-left)
-  (general-nmap "M-l" 'evil-window-right))
+  (general-nmap "M-l" 'evil-window-right)
+  (general-nmap "[b" 'xah-previous-user-buffer)
+  (general-nmap "]b" 'xah-next-user-buffer))
+
+(use-package evil-surround
+  :ensure t
+  :pin melpa-stable
+  :config
+  (global-evil-surround-mode 1))
 
 (use-package evil-collection
   :ensure t
@@ -737,7 +780,7 @@ directory."
 (use-package evil-commentary
   :ensure t
   :pin melpa
-  :diminish evil-commentary-mode
+  :delight evil-commentary-mode
   :config
   (evil-commentary-mode +1))
 
@@ -807,7 +850,7 @@ directory."
 (use-package smartparens
   :ensure t
   :pin melpa
-  :diminish smartparens-mode
+  :delight smartparens-mode
   :init
   (setq sp-show-pair-delay 0.2
         sp-show-pair-from-inside t
@@ -930,7 +973,7 @@ directory."
 (use-package anzu
   :ensure t
   :pin melpa
-  :diminish anzu-mode
+  :delight anzu-mode
   :init
   (setq anzu-cons-mode-line-p nil)
   :config
@@ -948,14 +991,14 @@ directory."
 (use-package evil-surround
   :ensure t
   :pin melpa
-  :diminish evil-surround-mode
+  :delight evil-surround-mode
   :config
   (global-evil-surround-mode t))
 ;; (use-package evil-snipe
 ;;   :ensure t
 ;;   :after evil
 ;;   :pin melpa
-;;   :diminish evil-snipe-local-mode
+;;   :delight evil-snipe-local-mode
 ;;   :init
 ;;   (setq evil-snipe-spillover-scope 'buffer)
 ;;   :config
@@ -1098,7 +1141,7 @@ directory."
   (add-hook 'typescript-mode-hook #'rockstar-setup-typescript))
 
 (use-package yasnippet
-  :diminish yas-minor-mode
+  :delight yas-minor-mode
   :ensure t
   :pin melpa
   :config
@@ -1251,7 +1294,7 @@ directory."
  '(org-export-backends (quote (ascii html icalendar latex md odt)))
  '(package-selected-packages
    (quote
-    (monokai-theme solarized-theme evil-unimpaired xterm-color shackle smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js diminish general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (delight helm-rg monokai-theme solarized-theme evil-unimpaired xterm-color shackle smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(pos-tip-background-color "#eee8d5")
  '(pos-tip-foreground-color "#586e75")
  '(powerline-default-separator (quote bar))
@@ -1304,7 +1347,16 @@ directory."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro")))))
+ '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro"))))
+ '(anzu-mode-line ((t (:inherit default-face))))
+ '(dashboard-banner-logo-title-face ((t (:inherit default :foreground "#ff79c6" :weight bold))))
+ '(dashboard-heading-face ((t (:inherit org-level-2))))
+ '(neo-banner-face ((t (:foreground "#ff79c6" :weight bold))))
+ '(neo-dir-link-face ((t (:foreground "#8be9fd"))))
+ '(neo-expand-btn-face ((t (:foreground "#f8f8f2"))))
+ '(neo-file-link-face ((t (:foreground "#f8f8f2"))))
+ '(neo-header-face ((t (:foreground "#f8f8f2"))))
+ '(neo-root-dir-face ((t (:foreground "#ff79c6" :weight bold)))))
 
 ;; Local Variables:
 ;; eval: (flycheck-mode -1)
