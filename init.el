@@ -187,6 +187,7 @@ indentation size."
   (setq comint-prompt-read-only t)
   (setq comint-scroll-show-maximum-output nil)
   :config
+  (general-imap :keymaps 'comint-mode-map "C-r" 'comint-history-isearch-backward)
   (add-hook 'comint-preoutput-filter-functions 'rockstar-propertize-read-only-hook))
 
 (use-package shell
@@ -348,7 +349,10 @@ indentation size."
   (define-key helm-map (kbd "C-i") #'helm-execute-persistent-action) ; make TAB work in terminal
   (define-key helm-map (kbd "C-z")  #'helm-select-action) ; list actions using C-z
 
+  (general-define-key :kemaps 'helm-map "C-u" #'helm-previous-page)
+  (general-define-key :kemaps 'helm-map "C-d" #'helm-next-page)
   (general-define-key :keymaps 'helm-map "<escape>" 'helm-keyboard-quit)
+
   (general-nmap "M-i" 'helm-imenu)
   (general-nmap "M-p" #'helm-show-kill-ring)
   (global-set-key (kbd "C-x C-f") 'helm-find-files)
@@ -369,10 +373,7 @@ indentation size."
   (define-key evil-ex-map "bd " #'rockstar-helm-delete-buffer)
   (define-key evil-ex-map "bdelete " #'rockstar-helm-delete-buffer)
 
-  (helm-mode 1)
-
-  (add-hook 'helm-minibuffer-set-up-hook
-            'spacemacs//helm-hide-minibuffer-maybe))
+  (helm-mode 1))
 
 (use-package helm-projectile
   :ensure t
@@ -628,6 +629,15 @@ directory."
   (general-nmap :keymaps 'lsp-ui-mode-map "<f2>" 'lsp-rename)
   (general-nmap :keymaps 'lsp-ui-mode-map "<f3>" 'lsp-format-buffer))
 
+(defun rockstar-configure-lsp-haskell ()
+  (interactive)
+  (lsp--set-configuration `(:languageServerHaskell (:completionSnippetsOn nil))))
+
+(defun rockstar-enable-lsp-haskell ()
+  (interactive)
+  (add-hook 'lsp-after-initialize-hook #'rockstar-configure-lsp-haskell)
+  (lsp-haskell-enable))
+
 (use-package lsp-haskell
   :ensure t
   :pin melpa
@@ -640,8 +650,8 @@ directory."
   (general-nmap 'haskell-mode-map "C-S-c" 'haskell-compile)
   (general-nmap 'haskell-cabal-mode-map "C-S-c" 'haskell-compile)
   (add-hook 'haskell-mode-hook (rockstar-add-word-syntax-entry ?_))
-  (add-hook 'haskell-mode-hook 'lsp-haskell-enable)
-  (add-hook 'haskell-mode-hook 'flycheck-mode)
+  (add-hook 'haskell-mode-hook #'rockstar-enable-lsp-haskell)
+  (add-hook 'haskell-mode-hook #'flycheck-mode)
   (add-hook 'haskell-mode-hook (rockstar-init-mode-indent 2)))
 
 (defun rockstar-org-gcal-fetch-silently ()
@@ -716,18 +726,17 @@ directory."
   :config
   (evil-mode 1)
   (add-hook 'git-commit-mode-hook #'evil-insert-state)
-  (general-imap :keymaps 'override "TAB" 'rockstar-insert-tab)
-  (general-nmap "M-s" 'evil-window-split)
-  (general-nmap "M-v" 'evil-window-vsplit)
-  (general-nmap "M-c" 'delete-window)
-  (general-nmap "M-o" 'delete-other-windows)
-  (general-nmap "M-=" 'balance-windows)
-  (general-nmap "M-j" 'evil-window-down)
-  (general-nmap "M-k" 'evil-window-up)
-  (general-nmap "M-h" 'evil-window-left)
-  (general-nmap "M-l" 'evil-window-right)
-  (general-nmap "[b" 'xah-previous-user-buffer)
-  (general-nmap "]b" 'xah-next-user-buffer))
+  (general-imap :keymaps 'override "TAB" #'rockstar-insert-tab)
+  (general-nmap "M-s" #'evil-window-split)
+  (general-nmap "M-v" #'evil-window-vsplit)
+  (general-nmap "M-c" #'delete-window)
+  (general-nmap "M-=" #'balance-windows)
+  (general-nmap "M-j" #'evil-window-down)
+  (general-nmap "M-k" #'evil-window-up)
+  (general-nmap "M-h" #'evil-window-left)
+  (general-nmap "M-l" #'evil-window-right)
+  (general-nmap "[b" #'xah-previous-user-buffer)
+  (general-nmap "]b" #'xah-next-user-buffer))
 
 (use-package evil-surround
   :ensure t
@@ -827,11 +836,10 @@ directory."
   (add-hook 'evil-org-mode-hook
             (lambda ()
               (evil-org-set-key-theme)))
-  (general-nmap :keymaps 'evil-org-mode-map "gx" #'org-open-at-point))
-  ;; (general-nmap :keymaps 'evil-org-mode-map "C-M-o" (evil-org-define-eol-command org-insert-heading))
-  ;; (general-nmap :keymaps 'evil-org-mode-map "M-o" (evil-org-define-eol-command org-meta-return))
-  ;; (general-nmap :keymaps 'evil-org-mode-map "o" #'evil-open-below)
-  ;; (general-nmap :keymaps 'evil-org-mode-map "O" #'evil-org-open-above))
+  (general-nmap :keymaps 'evil-org-mode-map "gx" #'org-open-at-point)
+  (general-nmap :keymaps 'evil-org-mode-map "C-M-o" (evil-org-define-eol-command org-insert-heading))
+  (general-nmap :keymaps 'evil-org-mode-map "M-o" (evil-org-define-eol-command org-meta-return))
+  (general-imap :keymaps 'org-mode-map "<return>" #'org-return-indent))
 
 (use-package restart-emacs
   :ensure t
@@ -916,19 +924,8 @@ directory."
 (use-package avy
   :ensure t
   :pin melpa
-  :init
-  (setq avy-timeout-seconds 0.3)
   :config
-  ;; Note: Evil integration is provided by evil-collection
-  ;; (define-key evil-motion-state-map (kbd ",") nil)
-  ;; (general-nmap ", w" 'avy-goto-word-0-below)
-  ;; (general-nmap ", b" 'avy-goto-word-0-above)
-  ;; (general-nmap ", j" 'avy-goto-line-below)
-  ;; (general-nmap ", k" 'avy-goto-line-above)
-  (global-set-key (kbd "C-'") 'avy-goto-char-timer)
-  (global-set-key (kbd "M-g '") 'avy-goto-line)
-  (avy-setup-default)
-  (global-set-key (kbd "C-c C-j") 'avy-resume))
+  (avy-setup-default))
 
 (use-package evil-easymotion
   :ensure t
@@ -942,6 +939,7 @@ directory."
 
 (use-package eyebrowse
   :ensure t
+  :after evil
   :pin melpa
   :init
   (setq eyebrowse-new-workspace t)
@@ -951,8 +949,6 @@ directory."
   (general-nmap "M-3" 'eyebrowse-switch-to-window-config-3)
   (general-nmap "M-4" 'eyebrowse-switch-to-window-config-4)
   (general-nmap "M-5" 'eyebrowse-switch-to-window-config-5)
-  (general-nmap "M-[" 'eyebrowse-prev-window-config)
-  (general-nmap "M-]" 'eyebrowse-next-window-config)
   (eyebrowse-mode t))
 
 (use-package prettier-js
@@ -1227,18 +1223,6 @@ directory."
 ;;   :config
 ;;   (require 'solarized-light-theme)
 ;;   (load-theme 'solarized-light))
-
-;; (use-package evil-unimpaired
-;;   :config
-;;   (evil-unimpaired-define-pair "q" '(flycheck-previous-error . flycheck-next-error))
-;;   (evil-unimpaired-define-pair "b" '(xah-previous-user-buffer . xah-next-user-buffer))
-;;   (evil-unimpaired-define-pair "a" '(evil-unimpaired-previous-file . evil-unimpaired-next-file))
-;;   (define-minor-mode local-evil-unimpaired-mode
-;;     "Local minor mode to provide convient pairs of bindings"
-;;     :keymap evil-unimpaired-mode-map
-;;     :global nil
-;;     (evil-normalize-keymaps))
-;;   (add-hook 'prog-mode-hook #'local-evil-unimpaired-mode))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
