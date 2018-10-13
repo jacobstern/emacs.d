@@ -31,6 +31,8 @@
 (general-imap "C-c" 'ignore)
 (general-imap :keymaps 'override "C-x" 'ignore)
 
+(general-nmap "M-<tab>" #'mode-line-other-buffer)
+
 (general-define-key :keymaps 'minibuffer-local-map "<escape>" 'minibuffer-keyboard-quit)
 
 (setq ring-bell-function 'ignore)
@@ -90,6 +92,10 @@ version 2016-06-18"
         nil
       t)))
 
+;; TODO: Buffer blacklist
+(general-nmap "M-[" #'switch-to-prev-buffer)
+(general-nmap "M-]" #'switch-to-next-buffer)
+
 (fset 'yes-or-no-p 'y-or-n-p)
 (global-auto-revert-mode t)
 
@@ -136,6 +142,7 @@ indentation size."
 (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?/))
 (add-hook 'emacs-lisp-mode-hook (rockstar-add-word-syntax-entry ?*))
 
+(add-hook 'prog-mode-hook (rockstar-add-word-syntax-entry ?_))
 
 (setq rockstar-shell-clear-regex "clear\\|cls")
 
@@ -330,6 +337,14 @@ indentation size."
     (helm-buffers-list)
     (rockstar-trim-last-ex-history-entry)))
 
+(defun rockstar-helm-scroll-down ()
+  (interactive)
+  (helm-next-page))
+
+(defun rockstar-helm-scroll-up ()
+  (interactive)
+  (helm-previous-page))
+
 (use-package helm
   :after evil
   :delight helm-mode
@@ -349,26 +364,42 @@ indentation size."
   (define-key helm-map (kbd "C-i") #'helm-execute-persistent-action) ; make TAB work in terminal
   (define-key helm-map (kbd "C-z")  #'helm-select-action) ; list actions using C-z
 
-  (general-define-key :kemaps 'helm-map "C-u" #'helm-previous-page)
-  (general-define-key :kemaps 'helm-map "C-d" #'helm-next-page)
+  (general-define-key :keymaps 'helm-map "C-b" #'helm-previous-page)
+  (general-define-key :keymaps 'helm-map "C-f" #'helm-next-page)
+  (general-define-key :keymaps 'helm-map "C-d" #'ignore)
+  (general-define-key :keymaps 'helm-map "C-u" #'ignore)
   (general-define-key :keymaps 'helm-map "<escape>" 'helm-keyboard-quit)
 
   (general-nmap "M-i" 'helm-imenu)
   (general-nmap "M-p" #'helm-show-kill-ring)
+  (general-nmap "M-b" #'helm-mini)
+
   (global-set-key (kbd "C-x C-f") 'helm-find-files)
   (general-define-key "M-x" #'helm-M-x)
   (general-define-key "C-h a" #'helm-apropos)
   (general-define-key "C-x b" #'helm-mini)
 
-  (evil-ex-define-cmd "buffers" #'helm-mini)
+  (evil-ex-define-cmd "buffers" #'helm-buffers-list)
 
+  ;; TODO: Actually implement this
   (define-key evil-ex-map "e " #'rockstar-helm-edit)
+  (define-key evil-ex-map "ed " #'rockstar-helm-edit)
+  (define-key evil-ex-map "edi " #'rockstar-helm-edit)
   (define-key evil-ex-map "edit " #'rockstar-helm-edit)
   (define-key evil-ex-map "vs " #'rockstar-helm-vsplit)
+  (define-key evil-ex-map "vsp " #'rockstar-helm-vsplit)
+  (define-key evil-ex-map "vspl " #'rockstar-helm-vsplit)
+  (define-key evil-ex-map "vspli " #'rockstar-helm-vsplit)
   (define-key evil-ex-map "vsplit " #'rockstar-helm-vsplit)
   (define-key evil-ex-map "sp " #'rockstar-helm-split)
+  (define-key evil-ex-map "spl " #'rockstar-helm-split)
+  (define-key evil-ex-map "spli " #'rockstar-helm-split)
   (define-key evil-ex-map "split " #'rockstar-helm-split)
   (define-key evil-ex-map "b " #'rockstar-helm-buffer)
+  (define-key evil-ex-map "bu " #'rockstar-helm-buffer)
+  (define-key evil-ex-map "buf " #'rockstar-helm-buffer)
+  (define-key evil-ex-map "buff " #'rockstar-helm-buffer)
+  (define-key evil-ex-map "buffe " #'rockstar-helm-buffer)
   (define-key evil-ex-map "buffer " #'rockstar-helm-buffer)
   (define-key evil-ex-map "bd " #'rockstar-helm-delete-buffer)
   (define-key evil-ex-map "bdelete " #'rockstar-helm-delete-buffer)
@@ -384,9 +415,10 @@ indentation size."
   (setq projectile-switch-project-action #'helm-projectile)
   :config
   (helm-projectile-on)
-  (general-nmap "C-p" 'helm-projectile)
-  (general-nmap "C-M-p" 'helm-projectile-switch-project)
-  (general-nmap "C-n" 'ignore))
+  (general-nmap "C-SPC" #'helm-projectile)
+  (general-nmap "C-M-b" #'helm-projectile-switch-to-buffer)
+  (general-nmap "C-M-p" #'helm-projectile-switch-project)
+  (general-nmap "C-n" #'ignore))
 
 (use-package helm-ag
   :ensure t
@@ -506,12 +538,10 @@ directory."
   :ensure t
   :pin melpa
   :delight
+  :init
+  (setq projectile-enable-caching t)
   :config
-  (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
-  (general-define-key :keymaps 'projectile-mode-map
-                      "C-c p"
-                      'projectile-command-map)
-  (general-nmap "C-S-p" #'projectile-run-shell)
+  (general-nmap :keymaps 'projectile-mode-map "M-t" #'projectile-run-shell)
   (projectile-mode 1))
 
 ;; (use-package whole-line-or-region
@@ -523,7 +553,7 @@ directory."
   :init
   (setq uniquify-buffer-name-style 'forward)
   (setq uniquify-after-kill-buffer-p t)
-  (setq uniquify-min-dir-content 1)
+  (setq uniquify-min-dir-content 0)
   (setq uniquify-ignore-buffers-re "^\\*"))
 
 ;; (use-package nyan-mode
@@ -594,8 +624,9 @@ directory."
   :config
   (add-hook 'after-init-hook 'global-flycheck-mode)
   (setq flycheck-display-errors-function #'flycheck-display-error-messages-unless-error-list)
-  (general-nmap :keymaps 'flycheck-mode-map "[q" 'flycheck-previous-error)
-  (general-nmap :keymaps 'flycheck-mode-map "]q" 'flycheck-next-error))
+  (general-nmap :keymaps 'flycheck-mode-map "M-q" #'flycheck-list-errors)
+  (general-nmap :keymaps 'flycheck-mode-map "[q" #'flycheck-previous-error)
+  (general-nmap :keymaps 'flycheck-mode-map "]q" #'flycheck-next-error))
 
 ;; (use-package intero
 ;;   :after (haskell-mode flycheck)
@@ -606,7 +637,9 @@ directory."
 
 (use-package lsp-mode
   :ensure t
-  :pin melpa)
+  :pin melpa
+  :config
+  (general-nmap "C-M-a" #'lsp-execute-code-action))
 
 (use-package company-lsp
   :ensure t
@@ -638,6 +671,21 @@ directory."
   (add-hook 'lsp-after-initialize-hook #'rockstar-configure-lsp-haskell)
   (lsp-haskell-enable))
 
+(defconst rockstar-haskell-prettify-symbols-alist
+  '(("::" . ?∷)
+    ("=>" . ?⇒)
+    ("->" . ?→)
+    ("<-" . ?←)
+    ("forall" . ?∀)))
+
+(defun rockstar-haskell-prettify-symbols ()
+  (interactive)
+  (if prettify-symbols-mode
+      (prettify-symbols-mode 0)
+    (progn
+      (setq-local prettify-symbols-alist rockstar-haskell-prettify-symbols-alist)
+      (prettify-symbols-mode))))
+
 (use-package lsp-haskell
   :ensure t
   :pin melpa
@@ -646,10 +694,10 @@ directory."
   (setq lsp-haskell-process-path-hie "~/.local/bin/hie-wrapper")
   (setq haskell-compile-cabal-build-command "stack build")
   :config
+  ;; (add-hook 'haskell-mode-hook #'rockstar-haskell-prettify-symbols)
   ;; TODO: Correct way to do this?
   (general-nmap 'haskell-mode-map "C-S-c" 'haskell-compile)
   (general-nmap 'haskell-cabal-mode-map "C-S-c" 'haskell-compile)
-  (add-hook 'haskell-mode-hook (rockstar-add-word-syntax-entry ?_))
   (add-hook 'haskell-mode-hook #'rockstar-enable-lsp-haskell)
   (add-hook 'haskell-mode-hook #'flycheck-mode)
   (add-hook 'haskell-mode-hook (rockstar-init-mode-indent 2)))
@@ -722,7 +770,7 @@ directory."
   (setq evil-want-C-u-scroll t)
   (setq evil-want-integration nil)
   (setq evil-want-Y-yank-to-eol t)
-  (setq evil-cross-lines t)
+  (setq evil-cross-lines nil)
   :config
   (evil-mode 1)
   (add-hook 'git-commit-mode-hook #'evil-insert-state)
@@ -735,8 +783,8 @@ directory."
   (general-nmap "M-k" #'evil-window-up)
   (general-nmap "M-h" #'evil-window-left)
   (general-nmap "M-l" #'evil-window-right)
-  (general-nmap "[b" #'xah-previous-user-buffer)
-  (general-nmap "]b" #'xah-next-user-buffer))
+  (general-nmap :keymaps 'text-mode-map "[b" #'switch-to-prev-buffer)
+  (general-nmap :keymaps 'text-mode-map "]b" #'switch-to-next-buffer))
 
 (use-package evil-surround
   :ensure t
@@ -990,16 +1038,16 @@ directory."
   :delight evil-surround-mode
   :config
   (global-evil-surround-mode t))
-;; (use-package evil-snipe
-;;   :ensure t
-;;   :after evil
-;;   :pin melpa
-;;   :delight evil-snipe-local-mode
-;;   :init
-;;   (setq evil-snipe-spillover-scope 'buffer)
-;;   :config
-;;   (add-hook 'prog-mode-hook 'turn-on-evil-snipe-mode)
-;;   (add-hook 'text-mode-hook 'turn-on-evil-snipe-mode))
+
+(use-package evil-mc
+  :ensure t
+  :pin melpa-stable
+  :after anzu
+  :delight
+  :config
+  (global-evil-mc-mode 1)
+  ;; https://github.com/gabesoft/evil-mc/issues/26
+  (advice-add 'evil-mc-undo-all-cursors :after #'anzu--reset-mode-line))
 
 (setq rockstar-preferred-web-mode-indent 2)
 
@@ -1197,33 +1245,6 @@ directory."
   :config
   (add-to-list 'auto-mode-alist '("\.feature$" . feature-mode)))
 
-;; (use-package solarized-theme
-;;   :ensure t
-;;   :pin melpa
-;;   :init
-;;   ;; make the fringe stand out from the background
-;;   (setq solarized-distinct-fringe-background nil)
-
-;;   ;; Don't change the font for some headings and titles
-;;   (setq solarized-use-variable-pitch nil)
-
-;;   ;; make the modeline high contrast
-;;   (setq solarized-high-contrast-mode-line t)
-
-;;   ;; Use less bolding
-;;   (setq solarized-use-less-bold t)
-
-;;   ;; Use more italics
-;;   (setq solarized-use-more-italic t)
-
-;;   ;; Use less colors for indicators such as git:gutter, flycheck and similar
-;;   (setq solarized-emphasize-indicators nil)
-
-;;   (setq x-underline-at-descent-line t)
-;;   :config
-;;   (require 'solarized-light-theme)
-;;   (load-theme 'solarized-light))
-
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -1278,7 +1299,7 @@ directory."
  '(org-export-backends (quote (ascii html icalendar latex md odt)))
  '(package-selected-packages
    (quote
-    (delight helm-rg monokai-theme solarized-theme evil-unimpaired xterm-color shackle smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
+    (evil-mc delight helm-rg monokai-theme evil-unimpaired xterm-color shackle smart-mode-line nyan-mode company-lsp yasnippet helm-ag swiper-helm helm-projectile all-the-icons-dired dired-hacks feature-mode vscode-icon dired-sidebar vscode-icons lsp-typescript lsp-javascript-typescript lsp-haskell lsp-ui evil-easymotion flx prettier-js general avy evil-magit atomic-chrome evil-snipe add-node-modules-path helm hindent mwim yaml-mode docker eyebrowse evil-commentary ivy-hydra hydra evil-anzu anzu tide web-mode ag wgrep counsel-projectile exec-path-from-shell counsel smex ivy hl-todo highlight-todo smartparens tabbar restart-emacs evil-org-agenda evil-org evil-tutor evil-collection evil emojify org-gcal dashboard intero flycheck bash-completion winum all-the-icons magit ztree company undo-tree neotree projectile use-package whole-line-or-region dracula-theme)))
  '(pos-tip-background-color "#eee8d5")
  '(pos-tip-foreground-color "#586e75")
  '(powerline-default-separator (quote bar))
@@ -1334,13 +1355,7 @@ directory."
  '(default ((t (:inherit nil :stipple nil :background "#282a36" :foreground "#f8f8f2" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 140 :width normal :foundry "nil" :family "Source Code Pro"))))
  '(anzu-mode-line ((t (:inherit default-face))))
  '(dashboard-banner-logo-title-face ((t (:inherit default :foreground "#ff79c6" :weight bold))))
- '(dashboard-heading-face ((t (:inherit org-level-2))))
- '(neo-banner-face ((t (:foreground "#ff79c6" :weight bold))))
- '(neo-dir-link-face ((t (:foreground "#8be9fd"))))
- '(neo-expand-btn-face ((t (:foreground "#f8f8f2"))))
- '(neo-file-link-face ((t (:foreground "#f8f8f2"))))
- '(neo-header-face ((t (:foreground "#f8f8f2"))))
- '(neo-root-dir-face ((t (:foreground "#ff79c6" :weight bold)))))
+ '(dashboard-heading-face ((t (:inherit org-level-2)))))
 
 ;; Local Variables:
 ;; eval: (flycheck-mode -1)
